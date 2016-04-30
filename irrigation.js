@@ -44,6 +44,7 @@ module.exports = function setup(options, imports, register) {
      */
     if (config.controller.mode === 'http') {
       _this.update = setInterval(function () {
+        let data = '';
         const request = http.request({
           host: config.controller.address,
           port: config.controller.port,
@@ -51,9 +52,12 @@ module.exports = function setup(options, imports, register) {
           method: 'GET',
         }, function (res) {
           res.on('data', function (chunk) {
+            data += chunk;
+          });
+          res.on('end', function () {
             log.trace('Обновление информации о контурах полива');
 
-            const response = JSON.parse(chunk.toString());
+            const response = JSON.parse(data.toString());
             response.data.forEach(function (payload, index) {
               _this.circuits(payload.name, function (err, circuit) {
                 if (err) {
@@ -173,8 +177,6 @@ module.exports = function setup(options, imports, register) {
 
       const name = event.data.name;
       const options = event.data.sensors || {};
-
-      console.log(event.data.sensors);
 
       _this.start(event.data.name, options);
     });
@@ -331,6 +333,7 @@ module.exports = function setup(options, imports, register) {
             status: true,
           });
 
+          let data = '';
           const request = http.request({
             host: config.controller.address,
             port: config.controller.port,
@@ -343,7 +346,10 @@ module.exports = function setup(options, imports, register) {
             },
           }, function (res) {
             res.on('data', function (chunk) {
-              const response = JSON.parse(chunk.toString());
+              data += chunk;
+            });
+            res.on('end', function () {
+              const response = JSON.parse(data.toString());
               return monitor(circuit, options);
             });
           });
@@ -513,6 +519,7 @@ module.exports = function setup(options, imports, register) {
             status: false,
           });
 
+          let data = '';
           const request = http.request({
             host: config.controller.address,
             port: config.controller.port,
@@ -525,7 +532,10 @@ module.exports = function setup(options, imports, register) {
             },
           }, function (res) {
             res.on('data', function (chunk) {
-              const response = JSON.parse(chunk.toString());
+              data += chunk;
+            });
+            res.on('end', function () {
+              const response = JSON.parse(data.toString());
               /*
                 Ответ должен быть 200 OK, в противном случае контроллер настроен некорректно.
               */

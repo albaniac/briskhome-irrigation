@@ -4,8 +4,7 @@ module.exports = function (server, imports) {
 
   const bus = imports.bus;
   const log = imports.log;
-
-  const passport = require('passport-restify');
+  const passport = imports.passport;
 
   // /**
   //  * Example route declaration.

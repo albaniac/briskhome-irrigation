@@ -5,7 +5,17 @@
   "author": "Egor Zaitsev <ezaitsev@briskhome.com>",
   "private": true,
   "plugin": {
-    "consumes": ["log", "db", "config", "bus"],
-    "provides": ["irrigation"]
+    "consumes": [
+      "log",
+      "db",
+      "config",
+      "bus"
+    ],
+    "provides": [
+      "irrigation"
+    ]
+  },
+  "dependencies": {
+    "mongoose": "^4.4.14"
   }
 }
