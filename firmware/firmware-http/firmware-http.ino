@@ -1,3 +1,13 @@
+/**
+ * @briskhome/irrigation <lib/irrigation/index.js>
+ * └ firmware/firmware-http.ino
+ *
+ * Скетч для работы контроллера полива по протоколу HTTP.
+ *
+ * @author Егор Зайцев <ezaitsev@briskhome.com>
+ * @version 0.1.5
+ */
+
 #include <SPI.h>
 #include <NewPing.h>
 #include <OneWire.h>
@@ -5,23 +15,23 @@
 #include <TroykaDHT11.h>
 #include <DallasTemperature.h>
 
-#define TANK_VALVE        6
+#define TANK_VALVE        5
 #define TANK_TRIGGER      1
 #define TANK_ECHO         2
 #define TANK_DISTANCE     500
 #define TANK_TEMPERATURE  0
 
-#define GRDN_VALVE        7
-#define GRDN_MOISTURE     4 // A4
+#define GRDN_VALVE        6
+#define GRDN_MOISTURE     6 // A4
 
-#define GRHS_VALVE        5
+#define GRHS_VALVE        7
 #define GRHS_MOISTURE     5 // A5
 #define GRHS_DHT          3
 
 #define MAX_DISTANCE      250
 #define MIN_DISTANCE      50
 
-byte    mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+byte    mac[] = { 0x90, 0xA2, 0xDA, 0x10, 0x6E, 0x7A };
 String  request;
 
 DHT11             dht(GRHS_DHT);
@@ -34,11 +44,14 @@ DallasTemperature sensors(&oneWire);
 void setup() {
   Serial.begin(9600);
 
+  pinMode(4, OUTPUT);
+  digitalWrite(4, HIGH);
+
   pinMode(TANK_VALVE, OUTPUT);
   pinMode(GRDN_VALVE, OUTPUT);
   pinMode(GRHS_VALVE, OUTPUT);
 
-  Ethernet.begin(mac, ip);
+  Ethernet.begin(mac);
   sensors.begin();
   server.begin();
   dht.begin();
@@ -79,13 +92,14 @@ void loop() {
             client.println("Content-Type: application/json");
             client.println();
             client.println("{\"status\": {\"code\": 200, \"message\": \"OK\"}}");
+            client.println();
           } else {
             String greenhouseTemperature;
             String greenhouseHumidity;
             String greenhouseMoisture = String(analogRead(5));
 
             int ping = sonar.ping();
-            String tankDistance = String(ping / US_ROUNDTRIP_CM);
+            String tankLevel = String(ping / US_ROUNDTRIP_CM);
             String tankTemperature = String(sensors.getTempCByIndex(0));
 
             if (dht.read() == DHT_OK) {
@@ -106,10 +120,11 @@ void loop() {
             client.println("Content-Type: application/json");
             client.println();
             client.print("{\"status\": {\"code\": 200, \"message\": \"OK\"}, \"data\": [");
-            client.print("{\"name\": \"tank\", \"status\": " + tankValve + ", \"sensors\": {\"temperature\": " + tankTemperature + ", \"level\": " + tankLevel + "}}");
-            client.print("{\"name\": \"garden\", \"status\": " + gardenValve + ", \"sensors\": {\"moisture\": " gardenMoisture + "}}");
+            client.print("{\"name\": \"tank\", \"status\": " + tankValve + ", \"sensors\": {\"temperature\": " + tankTemperature + ", \"level\": " + tankLevel + "}},");
+            client.print("{\"name\": \"garden\", \"status\": " + gardenValve + ", \"sensors\": {\"moisture\": " + gardenMoisture + "}},");
             client.print("{\"name\": \"greenhouse\", \"status\": " + greenhouseValve + ", \"sensors\": {\"temperature\": " + greenhouseTemperature + ", \"humidity\": " + greenhouseHumidity + ", \"moisture\": " + greenhouseMoisture + "}}");
-            client.println("]}");
+            client.print("]}");
+            // client.println();
           }
           client.stop();
         } else if (c == '\n') {
