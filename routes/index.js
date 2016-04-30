@@ -1,3 +1,13 @@
+/**
+ * @briskhome/irrigation <lib/irrigation/index.js>
+ * └ routes/index.js
+ *
+ * Маршруты API.
+ *
+ * @author Егор Зайцев <ezaitsev@briskhome.com>
+ * @version 0.1.5
+ */
+
 'use strict';
 
 module.exports = function (server, imports) {

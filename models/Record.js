@@ -5,7 +5,7 @@
  * Модель данных истории полива.
  *
  * @author Егор Зайцев <ezaitsev@briskhome.com>
- * @version 0.1.3-rev140416
+ * @version 0.1.5
  */
 
 'use strict';
