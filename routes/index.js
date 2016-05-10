@@ -5,7 +5,7 @@
  * Маршруты API.
  *
  * @author Егор Зайцев <ezaitsev@briskhome.com>
- * @version 0.1.5
+ * @version 0.2.0
  */
 
 'use strict';
