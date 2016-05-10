@@ -17,7 +17,7 @@ module.exports = function (server, imports) {
   const passport = imports.passport;
 
   // /**
-  //  * Example route declaration.
+  //  * Образец объявления маршрута.
   //  */
   // server.get({
   //   path: '/irrigation',
@@ -35,7 +35,7 @@ module.exports = function (server, imports) {
     path: '/irrigation/circuits',
     version: '3.0.0',
   },
-  passport.authenticate('localapikey', {
+  passport.authenticate('http-header-token', {
     session: false,
     failureRedirect: '/unauthorized',
   }),
@@ -55,7 +55,7 @@ module.exports = function (server, imports) {
     path: '/irrigation/circuits/:name',
     version: '3.0.0',
   },
-  passport.authenticate('localapikey', {
+  passport.authenticate('http-header-token', {
     session: false,
     failureRedirect: '/unauthorized',
   }),
@@ -73,17 +73,17 @@ module.exports = function (server, imports) {
   /**
    * Обработка запросов на изменение статуса контура полива (запуск/отключение полива).
    */
-  server.patch({
+  server.put({
     path: '/irrigation/circuits/:name',
     version: '3.0.0',
   },
-  passport.authenticate('localapikey', {
+  passport.authenticate('http-header-token', {
     session: false,
     failureRedirect: '/unauthorized',
   }),
   function (req, res, next) {
-    console.log(req.body);
     let request = req.body;
+
     if (!request.name) {
       request.name = req.params.name;
     }

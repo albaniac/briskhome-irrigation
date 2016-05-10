@@ -20,7 +20,7 @@ module.exports = function setup(options, imports, register) {
   const config = imports.config.irrigation;
 
   const Record = db.models.Record;
-  const Measure = db.models.Measure;
+  const Measure = db.models['Core:Measure'];
   const Circuit = db.models.Circuit;
 
   /**
@@ -57,7 +57,21 @@ module.exports = function setup(options, imports, register) {
           res.on('end', function () {
             log.trace('Обновление информации о контурах полива');
 
-            const response = JSON.parse(data.toString());
+            let response;
+            try {
+              response = JSON.parse(data.toString());
+            } catch (err) {
+              log.warn('Невозможно прочитать сообщение от контроллера', {
+                'Код': 13,
+                'Ошибка': 'Ответ контроллера не в формате JSON',
+                'Подробная информация': {
+                  'Данные': data.toString(),
+                  'Исключение': err,
+                },
+              });
+              return;
+            }
+
             response.data.forEach(function (payload, index) {
               _this.circuits(payload.name, function (err, circuit) {
                 if (err) {
@@ -119,7 +133,22 @@ module.exports = function setup(options, imports, register) {
             }
 
             let circuit = data[0];
-            const payload = JSON.parse(event.payload);
+            let payload;
+
+            try {
+              payload = JSON.parse(event.payload);
+            } catch (err) {
+              log.warn('Невозможно прочитать сообщение от контроллера', {
+                'Код': 14,
+                'Ошибка': 'Ответ контроллера не в формате JSON',
+                'Подробная информация': {
+                  'Данные': data.toString(),
+                  'Исключение': err,
+                },
+              });
+              return;
+            }
+
             Object.keys(payload.sensors).forEach(function (sensor) {
               circuit.sensors[sensor] = payload.sensors.sensor;
               let measure = new Measure();
@@ -149,7 +178,20 @@ module.exports = function setup(options, imports, register) {
               return;
             }
 
-            const payload = JSON.parse(event.payload);
+            try {
+              var payload = JSON.parse(event.payload);
+            } catch (err) {
+              log.warn('Невозможно прочитать сообщение от контроллера', {
+                'Код': 15,
+                'Ошибка': 'Ответ контроллера не в формате JSON',
+                'Подробная информация': {
+                  'Данные': data.toString(),
+                  'Исключение': err,
+                },
+              });
+              return;
+            }
+
             Object.keys(payload.sensors).forEach(function (sensor, index) {
               let measure = new Measure();
               circuit.sensors[sensor] = payload.sensors[sensor];
@@ -349,7 +391,20 @@ module.exports = function setup(options, imports, register) {
               data += chunk;
             });
             res.on('end', function () {
-              const response = JSON.parse(data.toString());
+              let response;
+              try {
+                response = JSON.parse(data.toString());
+              } catch (err) {
+                log.warn('Невозможно прочитать сообщение от контроллера', {
+                  'Код': 16,
+                  'Ошибка': 'Ответ контроллера не в формате JSON',
+                  'Подробная информация': {
+                    'Данные': data.toString(),
+                    'Исключение': err,
+                  },
+                });
+                return;
+              }
               return monitor(circuit, options);
             });
           });
@@ -535,7 +590,21 @@ module.exports = function setup(options, imports, register) {
               data += chunk;
             });
             res.on('end', function () {
-              const response = JSON.parse(data.toString());
+              let response;
+              try {
+                response = JSON.parse(data.toString());
+              } catch (err) {
+                log.warn('Невозможно прочитать сообщение от контроллера', {
+                  'Код': 16,
+                  'Ошибка': 'Ответ контроллера не в формате JSON',
+                  'Подробная информация': {
+                    'Данные': data.toString(),
+                    'Исключение': err,
+                  },
+                });
+                return;
+              }
+
               /*
                 Ответ должен быть 200 OK, в противном случае контроллер настроен некорректно.
               */
