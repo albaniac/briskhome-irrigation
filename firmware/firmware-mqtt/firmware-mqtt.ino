@@ -5,7 +5,7 @@
  * Скетч для работы контроллера полива по протоколу MQTT.
  *
  * @author Егор Зайцев <ezaitsev@briskhome.com>
- * @version 0.1.4
+ * @version 0.2.0
  */
 
 #include <SPI.h>

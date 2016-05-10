@@ -1,11 +1,21 @@
 {
   "name": "briskhome-irrigation",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "main": "irrigation.js",
   "author": "Egor Zaitsev <ezaitsev@briskhome.com>",
   "private": true,
   "plugin": {
-    "consumes": ["log", "db", "config", "bus"],
-    "provides": ["irrigation"]
+    "consumes": [
+      "log",
+      "db",
+      "config",
+      "bus"
+    ],
+    "provides": [
+      "irrigation"
+    ]
+  },
+  "dependencies": {
+    "mongoose": "^4.4.14"
   }
 }

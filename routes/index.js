@@ -1,14 +1,23 @@
+/**
+ * @briskhome/irrigation <lib/irrigation/index.js>
+ * └ routes/index.js
+ *
+ * Маршруты API.
+ *
+ * @author Егор Зайцев <ezaitsev@briskhome.com>
+ * @version 0.2.0
+ */
+
 'use strict';
 
 module.exports = function (server, imports) {
 
   const bus = imports.bus;
   const log = imports.log;
-
-  const passport = require('passport-restify');
+  const passport = imports.passport;
 
   // /**
-  //  * Example route declaration.
+  //  * Образец объявления маршрута.
   //  */
   // server.get({
   //   path: '/irrigation',
@@ -26,7 +35,7 @@ module.exports = function (server, imports) {
     path: '/irrigation/circuits',
     version: '3.0.0',
   },
-  passport.authenticate('localapikey', {
+  passport.authenticate('http-header-token', {
     session: false,
     failureRedirect: '/unauthorized',
   }),
@@ -46,7 +55,7 @@ module.exports = function (server, imports) {
     path: '/irrigation/circuits/:name',
     version: '3.0.0',
   },
-  passport.authenticate('localapikey', {
+  passport.authenticate('http-header-token', {
     session: false,
     failureRedirect: '/unauthorized',
   }),
@@ -64,17 +73,17 @@ module.exports = function (server, imports) {
   /**
    * Обработка запросов на изменение статуса контура полива (запуск/отключение полива).
    */
-  server.patch({
+  server.put({
     path: '/irrigation/circuits/:name',
     version: '3.0.0',
   },
-  passport.authenticate('localapikey', {
+  passport.authenticate('http-header-token', {
     session: false,
     failureRedirect: '/unauthorized',
   }),
   function (req, res, next) {
-    console.log(req.body);
     let request = req.body;
+
     if (!request.name) {
       request.name = req.params.name;
     }

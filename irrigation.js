@@ -4,7 +4,7 @@
  * Модуль управления поливом.
  *
  * @author Егор Зайцев <ezaitsev@briskhome.com>
- * @version 0.1.5
+ * @version 0.2.0
  */
 
 'use strict';
@@ -20,7 +20,7 @@ module.exports = function setup(options, imports, register) {
   const config = imports.config.irrigation;
 
   const Record = db.models.Record;
-  const Measure = db.models.Measure;
+  const Measure = db.models['Core:Measure'];
   const Circuit = db.models.Circuit;
 
   /**
@@ -44,6 +44,7 @@ module.exports = function setup(options, imports, register) {
      */
     if (config.controller.mode === 'http') {
       _this.update = setInterval(function () {
+        let data = '';
         const request = http.request({
           host: config.controller.address,
           port: config.controller.port,
@@ -51,9 +52,26 @@ module.exports = function setup(options, imports, register) {
           method: 'GET',
         }, function (res) {
           res.on('data', function (chunk) {
+            data += chunk;
+          });
+          res.on('end', function () {
             log.trace('Обновление информации о контурах полива');
 
-            const response = JSON.parse(chunk.toString());
+            let response;
+            try {
+              response = JSON.parse(data.toString());
+            } catch (err) {
+              log.warn('Невозможно прочитать сообщение от контроллера', {
+                'Код': 13,
+                'Ошибка': 'Ответ контроллера не в формате JSON',
+                'Подробная информация': {
+                  'Данные': data.toString(),
+                  'Исключение': err,
+                },
+              });
+              return;
+            }
+
             response.data.forEach(function (payload, index) {
               _this.circuits(payload.name, function (err, circuit) {
                 if (err) {
@@ -115,7 +133,22 @@ module.exports = function setup(options, imports, register) {
             }
 
             let circuit = data[0];
-            const payload = JSON.parse(event.payload);
+            let payload;
+
+            try {
+              payload = JSON.parse(event.payload);
+            } catch (err) {
+              log.warn('Невозможно прочитать сообщение от контроллера', {
+                'Код': 14,
+                'Ошибка': 'Ответ контроллера не в формате JSON',
+                'Подробная информация': {
+                  'Данные': data.toString(),
+                  'Исключение': err,
+                },
+              });
+              return;
+            }
+
             Object.keys(payload.sensors).forEach(function (sensor) {
               circuit.sensors[sensor] = payload.sensors.sensor;
               let measure = new Measure();
@@ -145,7 +178,20 @@ module.exports = function setup(options, imports, register) {
               return;
             }
 
-            const payload = JSON.parse(event.payload);
+            try {
+              var payload = JSON.parse(event.payload);
+            } catch (err) {
+              log.warn('Невозможно прочитать сообщение от контроллера', {
+                'Код': 15,
+                'Ошибка': 'Ответ контроллера не в формате JSON',
+                'Подробная информация': {
+                  'Данные': data.toString(),
+                  'Исключение': err,
+                },
+              });
+              return;
+            }
+
             Object.keys(payload.sensors).forEach(function (sensor, index) {
               let measure = new Measure();
               circuit.sensors[sensor] = payload.sensors[sensor];
@@ -173,8 +219,6 @@ module.exports = function setup(options, imports, register) {
 
       const name = event.data.name;
       const options = event.data.sensors || {};
-
-      console.log(event.data.sensors);
 
       _this.start(event.data.name, options);
     });
@@ -331,6 +375,7 @@ module.exports = function setup(options, imports, register) {
             status: true,
           });
 
+          let data = '';
           const request = http.request({
             host: config.controller.address,
             port: config.controller.port,
@@ -343,7 +388,23 @@ module.exports = function setup(options, imports, register) {
             },
           }, function (res) {
             res.on('data', function (chunk) {
-              const response = JSON.parse(chunk.toString());
+              data += chunk;
+            });
+            res.on('end', function () {
+              let response;
+              try {
+                response = JSON.parse(data.toString());
+              } catch (err) {
+                log.warn('Невозможно прочитать сообщение от контроллера', {
+                  'Код': 16,
+                  'Ошибка': 'Ответ контроллера не в формате JSON',
+                  'Подробная информация': {
+                    'Данные': data.toString(),
+                    'Исключение': err,
+                  },
+                });
+                return;
+              }
               return monitor(circuit, options);
             });
           });
@@ -513,6 +574,7 @@ module.exports = function setup(options, imports, register) {
             status: false,
           });
 
+          let data = '';
           const request = http.request({
             host: config.controller.address,
             port: config.controller.port,
@@ -525,7 +587,24 @@ module.exports = function setup(options, imports, register) {
             },
           }, function (res) {
             res.on('data', function (chunk) {
-              const response = JSON.parse(chunk.toString());
+              data += chunk;
+            });
+            res.on('end', function () {
+              let response;
+              try {
+                response = JSON.parse(data.toString());
+              } catch (err) {
+                log.warn('Невозможно прочитать сообщение от контроллера', {
+                  'Код': 16,
+                  'Ошибка': 'Ответ контроллера не в формате JSON',
+                  'Подробная информация': {
+                    'Данные': data.toString(),
+                    'Исключение': err,
+                  },
+                });
+                return;
+              }
+
               /*
                 Ответ должен быть 200 OK, в противном случае контроллер настроен некорректно.
               */
