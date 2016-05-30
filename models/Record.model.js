@@ -21,5 +21,5 @@ module.exports = function (db) {
     timestamps: true,
   });
 
-  return db.model('Record', RecordSchema);
+  return db.model('irrigation:record', RecordSchema);
 };

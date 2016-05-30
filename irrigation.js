@@ -15,13 +15,18 @@ module.exports = function setup(options, imports, register) {
 
   const db = imports.db;
   const bus = imports.bus;
-  const log = imports.log;
   const mqtt = imports.mqtt;
-  const config = imports.config.irrigation;
 
-  const Record = db.models.Record;
-  const Measure = db.models['Core:Measure'];
-  const Circuit = db.models.Circuit;
+  const config = imports.config('irrigation');
+  const log = imports.log('irrigation', {
+    circuit: 'String',
+    controller: 'String',
+  });
+
+  // const Record = db.model('core:record');
+  const Measure = db.model('core:measure');
+  const Circuit = db.model('irrigation:circuit');
+  const Controller = db.model('irrigation:controller');
 
   /**
   * Класс Controller представляет собой делегата, осуществляющего управление контроллером полива,
@@ -31,13 +36,9 @@ module.exports = function setup(options, imports, register) {
   *
   * @constructor
   */
-  function Controller() {
+  function Irrigation() {
     const _this = this;
-    log.info('Инициализация контроллера полива в режиме ' + config.controller.mode.toUpperCase());
-    log.addTarget('file', { file: 'log/irrigation.log' })
-      .withFormatter('commonInfoModel')
-      .onlyIncluding({ file: /irrigation/ })
-      .withHighestSeverity('debug');
+    log.info('Инициализация соединения с контроллером полива в режиме ' + config.controller.mode.toUpperCase());
 
     /**
      * Инициализатор делегата контроллера полива по протоколу HTTP.
@@ -55,36 +56,20 @@ module.exports = function setup(options, imports, register) {
             data += chunk;
           });
           res.on('end', function () {
-            log.trace('Обновление информации о контурах полива');
+            log.trace('Получение обновлённой информации о контурах полива');
 
             let response;
             try {
               response = JSON.parse(data.toString());
             } catch (err) {
-              log.warn('Невозможно прочитать сообщение от контроллера', {
-                'Код': 13,
-                'Ошибка': 'Ответ контроллера не в формате JSON',
-                'Подробная информация': {
-                  'Данные': data.toString(),
-                  'Исключение': err,
-                },
-              });
+              err.data = data.toString();
+              log.error(err, 'Не удалось прочитать сообщение от контроллера');
               return;
             }
 
             response.data.forEach(function (payload, index) {
               _this.circuits(payload.name, function (err, circuit) {
-                if (err) {
-                  log.warn('Некорректный идентификатор контура полива', {
-                    'Код': 1,
-                    'Ошибка': 'Ответ контроллера содержит некорректный идентификатор контура полива',
-                    'Подробная информация': {
-                      'Идентификатор контура': payload.name,
-                      'Исключение': err,
-                    },
-                  });
-                  return;
-                }
+                if (err) return;
 
                 Object.keys(payload.sensors).forEach(function (sensor, index) {
                   let measure = new Measure();
@@ -102,13 +87,7 @@ module.exports = function setup(options, imports, register) {
         });
 
         request.on('error', function (err) {
-          log.warn('Контроллер недоступен', {
-            'Код': 2,
-            'Ошибка': 'Не удалось установить соединение с контроллером',
-            'Подробная информация': {
-              'Исключение': err,
-            },
-          });
+          log.error(err, 'Не удалось установить соединение с контроллером');
           return;
         });
 
@@ -121,74 +100,15 @@ module.exports = function setup(options, imports, register) {
      */
     if (config.controller.mode === 'mqtt') {
       bus.on('broadcast:irrigation', function (event) {
-        if (event.topic.split('/')[2] === 'circuits') {
-          Circuit.findOne({ name: event.topic.split('/').pop() }, function (err, data) {
-            if (err || !data) {
-              const message = 'Невозможно прочитать сообщение от контроллера';
-              log.warn(message, {
-                'Причина': 'Некорректный идентификатор контура полива',
-                'Ошибка': err ? err.message : event.topic.split('/')[-1],
-              });
-              return;
-            }
+        if (event.data.topic.split('/')[2] === 'circuits') {
+          _this.circuits(event.data.topic.split('/').pop(), function (err, circuit) {
+            if (err) return;
 
-            let circuit = data[0];
             let payload;
-
             try {
-              payload = JSON.parse(event.payload);
+              payload = JSON.parse(event.data.payload);
             } catch (err) {
-              log.warn('Невозможно прочитать сообщение от контроллера', {
-                'Код': 14,
-                'Ошибка': 'Ответ контроллера не в формате JSON',
-                'Подробная информация': {
-                  'Данные': data.toString(),
-                  'Исключение': err,
-                },
-              });
-              return;
-            }
-
-            Object.keys(payload.sensors).forEach(function (sensor) {
-              circuit.sensors[sensor] = payload.sensors.sensor;
-              let measure = new Measure();
-              measure.sensor = String(event.topic.split('/').pop() + ':' + sensor);
-              measure.value = payload.sensors.sensor;
-              measure.save();
-            });
-
-            circuit.status = payload.status;
-            circuit.save();
-          });
-        }
-      });
-
-      bus.on('broadcast:irrigation', function (event) {
-        if (event.topic.split('/')[2] === 'circuits') {
-          _this.circuits(event.topic.split('/').pop(), function (err, circuit) {
-            if (err) {
-              log.warn('Некорректный идентификатор контура полива', {
-                'Код': 0,
-                'Ошибка': 'Опубликованный топик содержит некорректный идентификатор контура полива',
-                'Подробная информация': {
-                  'Идентификатор контура': event.topic.split('/').pop(),
-                  'Исключение': err,
-                },
-              });
-              return;
-            }
-
-            try {
-              var payload = JSON.parse(event.payload);
-            } catch (err) {
-              log.warn('Невозможно прочитать сообщение от контроллера', {
-                'Код': 15,
-                'Ошибка': 'Ответ контроллера не в формате JSON',
-                'Подробная информация': {
-                  'Данные': data.toString(),
-                  'Исключение': err,
-                },
-              });
+              log.warn({ err, event }, 'Не удалось прочитать сообщение от контроллера');
               return;
             }
 
@@ -209,86 +129,50 @@ module.exports = function setup(options, imports, register) {
 
     /**
      * Подписка на событие `irrigation:start`, полученное по шине событий.
-     * Интерфейс для межмодульного взаимодействия без установления прямых зависимостей.
+     * Интерфейс для взаимодействия компонентов без установления прямых зависимостей.
      */
     bus.on('irrigation:start', function (event) {
-      log.trace('По шине событий получен запрос на включение полива', {
-        'Источник': event.module,
-        'Пакет данных': event.data,
-      });
-
-      const name = event.data.name;
-      const options = event.data.sensors || {};
-
-      _this.start(event.data.name, options);
+      const circuit = event.data.circuit || ''; // hasOwnProperty?
+      const options = event.data.options || {}; // hasOwnProperty?
+      log.debug({ event, circuit }, 'Получен запрос на включение полива по шине событий');
+      _this.start(circuit, options);
     });
 
     /**
     * Подписка на событие `irrigation:stop`, полученное по шине событий.
-    * Интерфейс для межмодульного взаимодействия без установления прямых зависимостей.
+    * Интерфейс для взаимодействия компонентов без установления прямых зависимостей.
      */
     bus.on('irrigation:stop', function (event) {
-      log.trace('По шине событий получен запрос на выключение полива', {
-        'Источник': event.module,
-        'Пакет данных': event.data,
-      });
-
-      const name = event.data.name;
-      _this.stop(event.data.name);
+      const circuit = event.data.circuit || ''; // hasOwnProperty?
+      log.debug({ event, circuit }, 'Получен запрос на выключение полива по шине событий');
+      _this.stop(circuit);
     });
 
     /**
     * Подписка на событие `irrigation:circuits`, полученное по шине событий.
-    * Интерфейс для межмодульного взаимодействия без установления прямых зависимостей.
+    * Интерфейс для взаимодействия компонентов без установления прямых зависимостей.
      */
     bus.on('irrigation:circuits', function (event) {
-      log.trace('По шине событий получен запрос контуров полива', {
-        'Источник': event.module,
-        'Пакет данных': event.data,
-      });
-
-      if (event.data.hasOwnProperty('name')) {
-        _this.circuits(event.data.name, function (err, data) {
-          if (err) {
-            log.warn('Некорректный идентификатор контура полива', {
-              'Код': 3,
-              'Ошибка': 'По шине событий получен некорректный идентификатор контура полива',
-              'Подробная информация': {
-                'Идентификатор контура': event.data.name,
-                'Исключение': err,
-              },
-            });
-            return;
-          }
+      log.debug(event, 'Получен запрос контуров полива по шине событий');
+      if (event.data.hasOwnProperty('circuit')) {
+        _this.circuits(event.data.circuit, function (err, circuit) {
+          if (err) return;
 
           bus.emit(event.module + ':' + 'irrigation:circuits', {
-            module: 'irrigation',
-            data,
+            component: 'irrigation',
+            data: circuit,
           });
         });
       } else {
         _this.circuits(function (err, data) {
-          if (err) {
-            log.warn('Не удалось загрузить информацию о конутрах полива', {
-              'Ошибка': err,
-            });
-            log.warn('Внутренняя ошибка модуля', {
-              'Код': 4,
-              'Ошибка': 'Не удалось получить информацию о контурах полива из базы данных',
-              'Подробная информация': {
-                'Исключение': err,
-              },
-            });
-            return;
-          }
+          if (err) return;
 
           bus.emit(event.module + ':' + 'irrigation:circuits', {
-            module: 'irrigation',
+            component: 'irrigation',
             data,
           });
         });
       }
-
     });
 
     /**
@@ -304,28 +188,14 @@ module.exports = function setup(options, imports, register) {
      */
     (function () {
       _this.circuits(function (err, data) {
-        if (err) {
-          log.warn('Внутренняя ошибка модуля', {
-            'Код': 5,
-            'Ошибка': 'Не удалось получить информацию о контурах полива из базы данных',
-            'Подробная информация': {
-              'Исключение': err,
-            },
-          });
-          return;
-        }
+        if (err) return;
 
         data.forEach(function (circuit) {
           if (circuit.status) {
-            log.warn('Работа модуля была завершена некорректно', {
-              'Код': 6,
-              'Ошибка': 'При инициализации обнаружен включенный полив контура',
-              'Подробная информация': {
-                'Контур': circuit.name,
-              },
+            log.warn({ circuit: circuit.name }, 'При инициализации обнаружен включенный полив контура');
+            _this.stop(circuit.name, function(err, data) {
+              // В случае ошибки она уже будет записана в журнал, поэтому ответ нас не интересует.
             });
-
-            _this.stop(circuit.name);
           }
         });
       });
@@ -337,37 +207,19 @@ module.exports = function setup(options, imports, register) {
    *
    * @param {String} id       Идентификатор или название контура полива.
    * @param {Object} options  Концигурационный объект.
-   *
    * @callback callback
    */
-  Controller.prototype.start = function start(id, options) {
+  Irrigation.prototype.start = function start(id, options, callback) {
+    if (typeof callback === 'undefined') callback = () => {};
     const _this = this;
     _this.circuits(id, function (err, circuit) {
-      if (err) {
-        log.warn('Некорректный идентификатор контура полива', {
-          'Код': 7,
-          'Ошибка': 'Невозможно включить полив контура с некорректным идентификатором',
-          'Подробная информация': {
-            'Идентификатор контура': id,
-            'Исключение': err,
-          },
-        });
-        return;
-      }
+      if (err) return callback(err);
 
       if (circuit.status) {
-        log.warn('Некорректное действие', {
-          'Код': 8,
-          'Ошибка': 'Невозможно включить полив контура, он уже включен',
-          'Подробная информация': {
-            'Идентификатор контура': id,
-          },
-        });
-        return;
+        log.debug({ circuit: circuit.name }, 'Попытка включения уже включённого контура полива');
+        return callback(null, err);
       } else {
-        log.trace('Обработка запроса на включение полива контура', {
-          'Контур': id,
-        });
+        log.trace({ circuit: circuit.name }, 'Обработка запроса на включение контура полива');
 
         if (config.controller.mode === 'http') {
           const payload = JSON.stringify({
@@ -395,29 +247,17 @@ module.exports = function setup(options, imports, register) {
               try {
                 response = JSON.parse(data.toString());
               } catch (err) {
-                log.warn('Невозможно прочитать сообщение от контроллера', {
-                  'Код': 16,
-                  'Ошибка': 'Ответ контроллера не в формате JSON',
-                  'Подробная информация': {
-                    'Данные': data.toString(),
-                    'Исключение': err,
-                  },
-                });
-                return;
+                err.data = data.toString();
+                log.error(err, 'Не удалось прочитать сообщение от контроллера');
+                return callback(err);
               }
               return monitor(circuit, options);
             });
           });
 
           request.on('error', function (err) {
-            log.warn('Контроллер недоступен', {
-              'Код': 9,
-              'Ошибка': 'Не удалось установить соединение с контроллером',
-              'Подробная информация': {
-                'Исключение': err,
-              },
-            });
-            return;
+            log.warn(err, 'Контроллер недоступен');
+            return callback(err);
           });
 
           request.write(payload);
@@ -426,7 +266,7 @@ module.exports = function setup(options, imports, register) {
 
         if (config.controller.mode === 'mqtt') {
           bus.emit('core.mqtt:publish', {
-            module: 'irrigation',
+            component: 'irrigation',
             data: {
               topic: '/irrigation/circuits/' + circuit.name,
               payload: '{\"name\": \"' + circuit.name + '\", \"status\": true}',
@@ -434,6 +274,7 @@ module.exports = function setup(options, imports, register) {
               retain: false,
             },
           });
+
           monitor(circuit, options);
         }
       }
@@ -442,70 +283,53 @@ module.exports = function setup(options, imports, register) {
     function monitor(circuit, options) {
       circuit.status = true;
       circuit.save();
+      callback(null, circuit);
 
-      if (circuit.name === 'tank') {
-        log.info('Включено наполнение резервуара', {
-          'Контур': circuit.name,
-          'Параметры': options || null,
-        });
-
+      if (circuit.name === 'tank') { /** @todo 0.3.0 добавить свойство "резервуар" контуру полива */
+        log.info({ circuit: circuit.name, data: options }, 'Включено наполнение резервуара');
         _this.timers[circuit.name] = setInterval(function () {
           _this.circuits(circuit.name, function (err, tank) {
             const level = parseInt(tank.sensors.level);
-            log.trace('Проверка условий для завершения полива контура', {
-              'Контур': circuit.name,
-              'Текущий уровень воды в резервуаре': level,
-              'Максимальный уровень воды': config.max,
-            });
-
-            if (level <= config.min) {
+            log.trace({ circuit: circuit.name, data: {
+              curLevel: level,
+              maxLevel: config.max,
+            }}, 'Проверка условий для выключения наполнения резервуара');
+            if (level >= config.max) {
               _this.stop(circuit.name);
             }
           });
         }, config.interval * 1000);
       } else if (options && options.hasOwnProperty('moisture') && options.moisture > 0) {
-        log.info('Включен полив контура с ограничением по влажности почвы', {
-          'Контур': circuit.name,
-          'Параметры': options || null,
-        });
-
+        log.info({ circuit: circuit.name, data: options }, 'Включен полив контура с ограничением по влажности почвы');
         _this.timers[circuit.name] = setInterval(function () {
           _this.circuits('tank', function (err, tank) {
             _this.circuits(circuit.name, function (err, data) {
               const level = parseInt(tank.sensors.level);
               const moisture = parseInt(data.sensors.moisture);
-              log.trace('Проверка условий для завершения полива контура', {
-                'Контур': circuit.name,
-                'Текущая влажность почвы': moisture,
-                'Максимальное значение влажности': options.moisture,
-                'Текущий уровень воды в резервуаре': level,
-                'Минимальный уровень воды': config.max,
-              });
-
-              if (moisture >= options.moisture || level >= config.max) {
+              log.trace({ circuit: circuit.name, data: {
+                curlevel: level,
+                minlevel: config.min,
+                curmoisture: moisture,
+                maxmoisture: options.moisture,
+              }}, 'Проверка условий для выключения контура полива');
+              if (moisture >= options.moisture || level <= config.min) {
                 _this.stop(circuit.name);
               }
             });
           });
         }, config.interval * 1000);
       } else if (options && options.hasOwnProperty('period') && options.period > 0) {
-        log.info('Включен полив контура с ограничением по времени', {
-          'Контур': circuit.name,
-          'Параметры': options || null,
-        });
-
+        log.info({ circuit: circuit.name, data: options }, 'Включен полив контура с ограничением по времени');
         let i = options.period / config.interval;
         _this.timers[circuit.name] = setInterval(function () {
           _this.circuits('tank', function (err, tank) {
             _this.circuits(circuit.name, function (err, data) {
               const level = parseInt(tank.sensors.level);
-              log.trace('Проверка условий для завершения полива контура', {
-                'Контур': circuit.name,
-                'Текущий уровень воды в резервуаре': level,
-                'Минимальный уровень воды': config.max,
-                'Осталось времени': i,
-              });
-
+              log.trace({ circuit: circuit.name, data: {
+                curlevel: level,
+                minlevel: config.min,
+                timeleft: i,
+              }}, 'Проверка условий для выключения контура полива');
               if (!i || level >= config.max) {
                 _this.stop(circuit.name);
               }
@@ -515,20 +339,14 @@ module.exports = function setup(options, imports, register) {
           });
         }, config.interval * 1000);
       } else {
-        log.info('Включен полив контура без указания ограничений', {
-          'Контур': circuit.name,
-          'Параметры': options || null,
-        });
-
+        log.info({ circuit: circuit.name, data: options }, 'Включен полив контура без указания ограничений');
         _this.timers[circuit.name] = setInterval(function () {
           _this.circuits('tank', function (err, tank) {
             const level = parseInt(tank.sensors.level);
-            log.trace('Проверка условий для завершения полива контура', {
-              'Контур': circuit.name,
-              'Текущий уровень воды в резервуаре': level,
-              'Минимальный уровень воды': config.max,
-            });
-
+            log.trace({ circuit: circuit.name, data: {
+               curlevel: level,
+               minlevel: config.min,
+            }}, 'Проверка условий для выключения контура полива');
             if (level >= config.max) {
               _this.stop(circuit.name);
             }
@@ -538,36 +356,24 @@ module.exports = function setup(options, imports, register) {
     }
   };
 
-  Controller.prototype.stop = function stop(id, callback) {
+  /**
+   * Завершает полив указанного контура.
+   *
+   * @param {String} id       Идентификатор или название контура полива.
+   * @callback callback
+   */
+  Irrigation.prototype.stop = function stop(id, callback) {
+    if (typeof callback === 'undefined') callback = () => {};
     const _this = this;
     clearInterval(_this.timers[id]);
     _this.circuits(id, function (err, circuit) {
-      if (err) {
-        log.warn('Некорректный идентификатор контура полива', {
-          'Код': 10,
-          'Ошибка': 'Невозможно выключить полив контура с некорректным идентификатором',
-          'Подробная информация': {
-            'Идентификатор контура': id,
-            'Исключение': err,
-          },
-        });
-        return;
-      }
+      if (err) return callback(err);
 
       if (!circuit.status) {
-        log.warn('Некорректное действие', {
-          'Код': 11,
-          'Ошибка': 'Невозможно выключить полив контура, он уже выключен',
-          'Подробная информация': {
-            'Идентификатор контура': id,
-          },
-        });
-        return;
+        log.debug({ circuit: circuit.name }, 'Попытка выключения уже выключенного контура полива');
+        return callback(err);
       } else {
-        log.trace('Обработка запроса на выключение полива контура', {
-          'Контур': id,
-        });
-
+        log.trace({ circuit: circuit.name }, 'Обработка запроса на включение контура полива');
         if (config.controller.mode === 'http') {
           const payload = JSON.stringify({
             name: circuit.name,
@@ -594,15 +400,9 @@ module.exports = function setup(options, imports, register) {
               try {
                 response = JSON.parse(data.toString());
               } catch (err) {
-                log.warn('Невозможно прочитать сообщение от контроллера', {
-                  'Код': 16,
-                  'Ошибка': 'Ответ контроллера не в формате JSON',
-                  'Подробная информация': {
-                    'Данные': data.toString(),
-                    'Исключение': err,
-                  },
-                });
-                return;
+                err.data = data.toString();
+                log.error(err, 'Не удалось прочитать сообщение от контроллера');
+                return callback(err);
               }
 
               /*
@@ -611,21 +411,14 @@ module.exports = function setup(options, imports, register) {
               circuit.status = false;
               circuit.save();
 
-              log.info('Полив контура выключен', {
-                'Контур': circuit.name,
-              });
+              log.info({ circuit: circuit.name }, 'Полив контура выключен');
+              return callback(null, circuit);
             });
           });
 
           request.on('error', function (err) {
-            log.warn('Контроллер недоступен', {
-              'Код': 12,
-              'Ошибка': 'Не удалось установить соединение с контроллером',
-              'Подробная информация': {
-                'Исключение': err,
-              },
-            });
-            return;
+            log.error(err, 'Не удалось установить соединение с контроллером');
+            return callback(err);
           });
 
           request.write(payload);
@@ -634,21 +427,20 @@ module.exports = function setup(options, imports, register) {
 
         if (config.controller.mode === 'mqtt') {
           bus.emit('core.mqtt:publish', {
-            module: 'irrigation',
+            component: 'irrigation',
             data: {
               topic: '/irrigation/circuits/' + circuit.name,
               payload: '{\"name\": \"' + circuit.name + '\", \"status\": false}',
               qos: 0,
-              retain: false,
+              retain: true,
             },
           });
 
           circuit.status = false;
           circuit.save();
 
-          log.info('Полив контура выключен', {
-            'Контур': circuit.name,
-          });
+          log.info({ circuit: circuit.name }, 'Полив контура выключен');
+          callback(null, circuit);
         }
       }
     }, true);
@@ -663,15 +455,20 @@ module.exports = function setup(options, imports, register) {
    *
    * @callback callback
    */
-  Controller.prototype.circuits = function circuits(id, callback, mongoose) {
+  Irrigation.prototype.circuits = function circuits(id, callback, mongoose) {
     const _this = this;
     const done = function (err, data) {
       if (err) {
+        log.error(err);
         callback(err);
       } else if (typeof id === 'string' && (!data || typeof data === 'undefined')) {
-        callback(true);
+        const err = new Error('Некорректный контур полива');
+        log.error({ err, circuit: id });
+        callback(err);
       } else if (typeof id === 'function' && (!data.length || typeof data === 'undefined')) {
-        callback(true);
+        const err = new Error('Отсутствуют сведения о контурах полива');
+        log.error(err);
+        callback(err);
       } else {
         return callback(null, data);
       }
@@ -709,6 +506,6 @@ module.exports = function setup(options, imports, register) {
   };
 
   register(null, {
-    irrigation: new Controller(),
+    irrigation: new Irrigation(),
   });
 };

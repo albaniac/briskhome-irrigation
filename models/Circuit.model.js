@@ -27,5 +27,5 @@ module.exports = function (db) {
     collection: 'irrigation.circuits',
   });
 
-  return db.model('Circuit', CircuitSchema);
+  return db.model('irrigation:circuit', CircuitSchema);
 };
