@@ -22,7 +22,7 @@
 #define TANK_TEMPERATURE  0
 
 #define GRDN_VALVE        6
-#define GRDN_MOISTURE     6 // A4
+#define GRDN_MOISTURE     4 // A4
 
 #define GRHS_VALVE        7
 #define GRHS_MOISTURE     5 // A5
@@ -96,7 +96,11 @@ void loop() {
           } else {
             String greenhouseTemperature;
             String greenhouseHumidity;
+            pinMode(8, OUTPUT);
+            digitalWrite(8, HIGH);
+            delay(10);
             String greenhouseMoisture = String(analogRead(5));
+            digitalWrite(8, LOW);
 
             int ping = sonar.ping();
             String tankLevel = String(ping / US_ROUNDTRIP_CM);
@@ -110,7 +114,11 @@ void loop() {
               greenhouseHumidity = String(dht.read());
             }
 
+            pinMode(9, OUTPUT);
+            digitalWrite(9, HIGH);
+            delay(10);
             String gardenMoisture = String(analogRead(4));
+            digitalWrite(9, LOW);
 
             String tankValve = (digitalRead(TANK_VALVE) == HIGH) ? "true" : "false";
             String gardenValve = (digitalRead(GRDN_VALVE) == HIGH) ? "true" : "false";

@@ -15,6 +15,7 @@ module.exports = function (server, imports) {
   const bus = imports.bus;
   const log = imports.log;
   const passport = imports.passport;
+  const planner = imports.planner;
 
   // /**
   //  * Образец объявления маршрута.

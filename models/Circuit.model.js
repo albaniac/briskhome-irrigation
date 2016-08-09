@@ -10,11 +10,14 @@
 
 'use strict';
 
-module.exports = function (db) {
+const uuid = require('uuid-1345');
 
+module.exports = (db) => {
   const Schema = db.Schema;
   const CircuitSchema = new Schema({
+    _id: { type: String, default: uuid.v4() },
     name: { type: String, required: true, unique: true },
+    controller: { type: String, ref: 'irrigation:controller' },
     status: { type: Boolean, default: false },
     disabled: { type: Boolean, default: false },
     sensors: {

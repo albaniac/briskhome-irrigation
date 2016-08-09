@@ -1,7 +1,7 @@
 {
   "name": "briskhome-irrigation",
   "version": "0.2.0",
-  "main": "irrigation.js",
+  "main": "irrigation.0.3.0.js",
   "author": "Egor Zaitsev <ezaitsev@briskhome.com>",
   "private": true,
   "plugin": {
@@ -16,6 +16,20 @@
     ]
   },
   "dependencies": {
-    "mongoose": "^4.4.14"
+    "async": "^2.0.1",
+    "mongoose": "^4.4.14",
+    "needle": "^1.1.0",
+    "uuid-1345": "^0.99.6"
+  },
+  "devDependencies": {
+    "async": "^2.0.1",
+    "chai": "^3.5.0",
+    "eslint": "^3.2.2",
+    "eslint-config-airbnb-base": "^5.0.1",
+    "eslint-plugin-import": "^1.12.0"
+  },
+  "scripts": {
+    "test": "mocha test/irrigation.0.3.0.test.js",
+    "coverage": "istanbul cover _mocha -- -R spec test/irrigation.0.3.0.test.js"
   }
 }
