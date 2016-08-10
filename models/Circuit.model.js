@@ -16,8 +16,8 @@ module.exports = (db) => {
   const Schema = db.Schema;
   const CircuitSchema = new Schema({
     _id: { type: String, default: uuid.v4() },
-    name: { type: String, required: true, unique: true },
-    controller: { type: String, ref: 'irrigation:controller' },
+    name: { type: String },
+    controller: { type: String, required: true, ref: 'irrigation:controller' },
     status: { type: Boolean, default: false },
     disabled: { type: Boolean, default: false },
     sensors: {

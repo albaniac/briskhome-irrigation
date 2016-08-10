@@ -37,94 +37,34 @@ const stubs = require('./irrigation.stubs.js');
 require('../')(options, imports, () => {});
 
 describe('Irrigation', function () {
-  before(function () {
-    Controller.collection.remove();
-    Circuit.collection.remove();
-    Device.collection.remove();
-  });
+  require('../')(options, imports, (error, returns) => {
+    if (error) done(error);
+    const irrigation = returns.irrigation;
 
-  after(function () {
-    Controller.collection.remove();
-    Circuit.collection.remove();
-    Device.collection.remove();
-  });
-
-  describe('#init()', function () {
-    require('../')(options, imports, (error, returns) => {
-      if (error) done(error);
-      const irrigation = returns.irrigation;
-
-      beforeEach(function (done) {
-        async.auto({
-          devices: (callback) => {
-            Device.collection.insert(stubs.devices, (err, data) => callback(err, data));
-          },
-        }, (err) => {
-          done(err);
-        });
-      });
-
-      afterEach(function (done) {
-        async.auto({
-          devices: (callback) => {
-            Device.collection.remove((err, data) => callback(err, data));
-          },
-          controllers: (callback) => {
-            Controller.collection.remove((err, data) => callback(err, data));
-          },
-        }, (err) => {
-          done(err);
-        });
-      });
-
-      it('should register an irrigation controller', function (done) {
-        irrigation.init(() => {
-          Controller.findOne({}).lean().exec((err, ctrl) => {
-            assert.equal(ctrl._id, 'd7fa0d0a-4fd9-462f-97b5-ba18fef1a7cb');
-            done(err);
-          });
-        });
-      });
-
-      it('should not register an irrigation controller twice', function (done) {
-        irrigation.init(() => {
-          irrigation.init(() => {
-            Controller.find({}).lean().exec((err, ctrls) => {
-              assert.isNull(err);
-              assert.equal(ctrls.length, 3);
-              done();
-            });
-          });
-        });
-      });
-
-      it('should fail if there is an error querying devices', function (done) {
-        const stub = sinon.stub(mongoose.Query.prototype, 'exec').yields(new Error('MongoError'));
-        irrigation.init((err) => {
-          stub.restore();
-          assert.instanceOf(err, Error);
-          done();
-        });
-      });
-
-      it('should fail if there is an error querying controllers');
-
-      it('should unregister an irrigation controller');
+    before(function () {
+      console.log('  (make sure to set up the environment for integration tests)');
+      Controller.collection.remove();
+      Circuit.collection.remove();
+      Device.collection.remove();
     });
-  });
 
-  describe('#controllers()', function () {
-    require('../')(options, imports, (error, returns) => {
-      const irrigation = returns.irrigation;
+    after(function () {
+      Controller.collection.remove();
+      Circuit.collection.remove();
+      Device.collection.remove();
+    });
+
+    describe('#init()', function () {
 
       beforeEach(function (done) {
         async.auto({
           devices: (callback) => {
-            Device.collection.insert(stubs.devices, (err, data) => callback(err, data));
+            Device.collection.insert(stubs.devices[0], (err, data) => callback(err, data));
           },
-          controllers: (callback) => {
-            Controller.collection.insert(stubs.controllers, (err, data) => callback(err, data));
-          },
+          // circuits: (callback) => {
+          //   Circuit.collection.insert([stubs.devices[0], stubs.devices[1]],
+          //     (err, data) => callback(err, data));
+          // },
         }, (err) => {
           done(err);
         });
@@ -135,33 +75,75 @@ describe('Irrigation', function () {
           devices: (callback) => {
             Device.collection.remove((err, data) => callback(err, data));
           },
-          controllers: (callback) => {
-            Controller.collection.remove((err, data) => callback(err, data));
-          },
+          circuits: (callback) => {
+            Circuit.collection.remove((err, data) => callback(err, data));
+          }
         }, (err) => {
           done(err);
         });
+      });
+
+      it('should scaffold out a controller', function (done) {
+        irrigation.init((err) => {
+          if (err) return done(err);
+          Device.findOne({}).lean().exec((e, device) => {
+            if (err) return done(e);
+            assert.deepEqual(device.services.irrigation, stubs.controllers[0]);
+            return done();
+          });
+        });
+      });
+
+      it('should register circuits', function (done) {
+        // TODO: In this test I need to spawn a controller.test.js or a fake server.
+        irrigation.init((err) => {
+          if (err) return done(err);
+          Circuit.find({ controller: stubs.devices[0]._id }).lean().exec((e, circuits) => {
+            if (err) return done(e);
+            assert.equal(circuits.length, 2);
+            return done();
+          });
+        });
+      });
+    });
+
+    describe('#controllers()', function () {
+
+      beforeEach(function (done) {
+        async.auto({
+          devices: (callback) => {
+            Device.collection.insert(stubs.devices, (err, data) => callback(err, data));
+          },
+        }, (err) => done(err));
+      });
+
+      afterEach(function (done) {
+        async.auto({
+          devices: (callback) => {
+            Device.collection.remove((err, data) => callback(err, data));
+          },
+        }, (err) => done(err));
       });
 
       it('should return a controller', function (done) {
         irrigation.controllers('d7fa0d0a-4fd9-462f-97b5-ba18fef1a7cb', (err, ctrl) => {
           assert.equal(ctrl._id, stubs.devices[0]._id);
-          done(err);
+          return done(err);
         });
       });
 
       it('should return a controller as a database document', function (done) {
         irrigation.controllers('d7fa0d0a-4fd9-462f-97b5-ba18fef1a7cb', (err, ctrl) => {
           assert.equal(ctrl._id, stubs.devices[0]._id);
-          assert.instanceOf(ctrl, Controller);
-          done(err);
+          assert.instanceOf(ctrl, Device);
+          return done(err);
         }, true);
       });
 
       it('should return all controllers', function (done) {
         irrigation.controllers((err, ctrls) => {
           assert.equal(ctrls.length, 3);
-          done(err);
+          return done(err);
         });
       });
 
@@ -169,24 +151,26 @@ describe('Irrigation', function () {
         irrigation.controllers((err, ctrls) => {
           assert.equal(ctrls.length, 3);
           ctrls.forEach((ctrl) => {
-            assert.instanceOf(ctrl, Controller);
+            // FIXME: async.each(...)
+            assert.instanceOf(ctrl, Device);
           });
-          done(err);
+          return done(err);
         }, true);
       });
 
       it('should fail if a controller is not registered', function (done) {
         irrigation.controllers('test', (err) => {
           assert.instanceOf(err, Error);
-          done();
+          return done();
         });
       });
 
       it('should fail if no controllers are registered', function (done) {
-        Controller.remove({}).exec(() => {
-          irrigation.controllers((err) => {
+        Device.collection.remove((err) => {
+          if (err) return done(err);
+          irrigation.controllers((err, data) => {
             assert.instanceOf(err, Error);
-            done();
+            return done();
           });
         });
       });
@@ -196,23 +180,17 @@ describe('Irrigation', function () {
         irrigation.controllers((err) => {
           stub.restore();
           assert.instanceOf(err, Error);
-          done();
+          return done();
         });
       });
     });
-  });
 
-  describe('#circuits()', function () {
-    require('../')(options, imports, (error, returns) => {
-      const irrigation = returns.irrigation;
+    describe('#circuits()', function () {
 
       beforeEach(function (done) {
         async.auto({
           devices: (callback) => {
             Device.collection.insert(stubs.devices, (err, data) => callback(err, data));
-          },
-          controllers: (callback) => {
-            Controller.collection.insert(stubs.controllers, (err, data) => callback(err, data));
           },
           circuits: (callback) => {
             Circuit.collection.insert(stubs.circuits, (err, data) => callback(err, data));
@@ -225,9 +203,6 @@ describe('Irrigation', function () {
           devices: (callback) => {
             Device.collection.remove((err, data) => callback(err, data));
           },
-          controllers: (callback) => {
-            Controller.collection.remove((err, data) => callback(err, data));
-          },
           circuits: (callback) => {
             Circuit.collection.remove((err, data) => callback(err, data));
           },
@@ -235,56 +210,27 @@ describe('Irrigation', function () {
       });
 
       it('should return a circuit', function (done) {
-        irrigation.circuits(stubs.circuits[0]._id, (err, circuit) => {
+        irrigation.circuits(stubs.circuits[0]._id, {}, (err, circuit) => {
           if (err) {
-            console.log(err);
             return done(err);
           }
+
           assert.equal(circuit._id, stubs.circuits[0]._id);
           return done();
         });
       });
 
       it('should return a circuit as a db document', function (done) {
-        irrigation.circuits(stubs.circuits[0]._id, (err, circuit) => {
+        irrigation.circuits(stubs.circuits[0]._id, { mongo: true }, (err, circuit) => {
           if (err) return done(err);
           assert.equal(circuit._id, stubs.circuits[0]._id);
           assert.instanceOf(circuit, Circuit);
           return done();
-        }, true);
-      });
-
-      it('should return all circuits of a controller', function (done) {
-        irrigation.circuits(stubs.controllers[0]._id, (err, circuits) => {
-          if (err) return done(err);
-          async.each(circuits, (circuit, callback) => {
-            assert.equal(circuit.controller, stubs.controllers[0]._id);
-            callback();
-          }, (e) => {
-            if (e) return done(e);
-            assert.equal(circuits.length, 2);
-            return done();
-          });
         });
       });
 
-      it('should return all circuits of a controller as a db document', function (done) {
-        irrigation.circuits(stubs.controllers[0]._id, (err, circuits) => {
-          if (err) return done(err);
-          async.each(circuits, (circuit, callback) => {
-            assert.equal(circuit.controller, stubs.controllers[0]._id);
-            assert.instanceOf(circuit, Circuit);
-            callback();
-          }, (e) => {
-            if (e) return done(e);
-            assert.equal(circuits.length, 2);
-            return done();
-          });
-        }, true);
-      });
-
       it('should return all circuits of all controllers', function (done) {
-        irrigation.circuits((err, circuits) => {
+        irrigation.circuits(null, {}, (err, circuits) => {
           if (err) return done(err);
           assert.equal(circuits.length, 6);
           return done();
@@ -292,7 +238,7 @@ describe('Irrigation', function () {
       });
 
       it('should return all circuits of all controller as a db document', function (done) {
-        irrigation.circuits((err, circuits) => {
+        irrigation.circuits(null, { mongo: true }, (err, circuits) => {
           if (err) return done(err);
           async.each(circuits, (circuit, callback) => {
             assert.instanceOf(circuit, Circuit);
@@ -302,11 +248,11 @@ describe('Irrigation', function () {
             assert.equal(circuits.length, 6);
             return done();
           });
-        }, true);
+        });
       });
 
       it('should fail if a circuit is not registered', function (done) {
-        irrigation.circuits('test', (err) => {
+        irrigation.circuits('test', {}, (err) => {
           assert.instanceOf(err, Error);
           done();
         });
@@ -315,7 +261,7 @@ describe('Irrigation', function () {
       it('should fail if no circuits are registered', function (done) {
         Circuit.collection.remove((err) => {
           if (err) return done(err);
-          return irrigation.circuits((e) => {
+          return irrigation.circuits(undefined, {}, (e) => {
             assert.instanceOf(e, Error);
             return done();
           });
@@ -324,33 +270,25 @@ describe('Irrigation', function () {
 
       it('should fail if a database error occurs', function (done) {
         const stub = sinon.stub(mongoose.Query.prototype, 'exec').yields(new Error('MongoError'));
-        irrigation.circuits((err) => {
+        irrigation.circuits(null, {}, (err) => {
           stub.restore();
           assert.instanceOf(err, Error);
           done();
         });
       });
     });
-  });
 
-  describe('#start()', function () {
-    require('../')(options, imports, (error, returns) => {
-      const irrigation = returns.irrigation;
+    describe('#start()', function () {
 
-      it('should start a circuit', function (done) {
-        irrigation.start(stubs.circuits[0]._id, (error, data) => {
-          done();
-        });
-      });
+      it('should start a circuit');
       it('should fail if circuit is already started');
       it('should fail if circuit is incorrect');
     });
-  });
 
-  describe('#stop()', function () {
-    it('should stop a circuit');
-    it('should fail if circuit is already stopped');
-    it('should fail if circuit is incorrect');
+    describe('#stop()', function () {
+      it('should stop a circuit');
+      it('should fail if circuit is already stopped');
+      it('should fail if circuit is incorrect');
+    });
   });
-
 });

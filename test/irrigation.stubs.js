@@ -5,31 +5,24 @@ module.exports = {
   devices: [{
     _id: 'd7fa0d0a-4fd9-462f-97b5-ba18fef1a7cb',
     name: 'Контроллер полива 1',
-    address: '127.0.0.1',
-    services: ['irrigation'],
+    address: '127.0.0.1:8888',
+    services: { irrigation: {} },
   }, {
     _id: '9f732952-f66a-4b32-8250-655091800e43',
     name: 'Контроллер полива 2',
-    address: '127.0.0.2',
-    services: ['irrigation'],
+    address: '10.0.0.2',
+    services: { irrigation: {} },
   }, {
     _id: 'c26e1c28-a49d-4552-8f4c-34403de5731f',
     name: 'Контроллер полива 3',
-    address: '127.0.0.3',
-    services: ['irrigation'],
+    address: '10.0.0.3',
+    services: { irrigation: {} },
   }],
   controllers: [{
-    _id: 'd7fa0d0a-4fd9-462f-97b5-ba18fef1a7cb',
-    name: 'Контроллер полива 1',
-    services: ['irrigation'],
-  }, {
-    _id: '9f732952-f66a-4b32-8250-655091800e43',
-    name: 'Контроллер полива 2',
-    services: ['irrigation'],
-  }, {
-    _id: 'c26e1c28-a49d-4552-8f4c-34403de5731f',
-    name: 'Контроллер полива 3',
-    services: ['irrigation'],
+    circuits: [],
+    protocol: 'http',
+    disabled: false,
+    status: false,
   }],
   circuits: [{
     _id: '985cbb6e-eb1e-46f9-8d41-ed063175deee',

@@ -1,15 +1,16 @@
 /**
- * @briskhome/irrigation <lib/irrigation/index.js>
- *
- * Модуль управления поливом.
- *
- * @author Егор Зайцев <ezaitsev@briskhome.com>
- * @version 0.3.0
- */
+* @briskhome/irrigation <lib/irrigation/index.js>
+*
+* Модуль управления поливом.
+*
+* @author Егор Зайцев <ezaitsev@briskhome.com>
+* @version 0.3.0
+*/
 
-// const http = require('http');
+'use strict';
+
 const async = require('async');
-const request = require('needle');
+const needle = require('needle');
 
 module.exports = function setup(options, imports, register) {
   const db = imports.db;
@@ -18,14 +19,13 @@ module.exports = function setup(options, imports, register) {
 
   // const config = imports.config('irrigation');
   const log = imports.log('irrigation', {
-    citcuit: 'String',
+    circuit: 'String',
     controller: 'String',
   });
 
   const Device = db.model('core:device');
-  // const Measure = db.model('core:measure');
   const Circuit = db.model('irrigation:circuit');
-  const Controller = db.model('irrigation:controller');
+  // const Measure = db.model('core:measure');
 
   /**
   * Класс Controller представляет собой делегата, осуществляющего управление контроллером полива,
@@ -42,83 +42,129 @@ module.exports = function setup(options, imports, register) {
 
 
   /**
-   * Метод Init осуществляет выборку устройств, предоставляющих сервис контроллера полива
-   * из базы данных. В случае, если устройство предоставляет такой сервис, массив 'services'
-   * должен содержать значение 'irrigation'. При нахождении такого значения в массиве при
-   * загрузке компонента такое устройство добавляется в коллекцию 'irrigation.controllers'.
-   */
+  * Метод #init() осуществляет первоначальное взаимодействие с контроллером для выявления доступных
+  * контуров полива.
+  */
   Irrigation.prototype.init = function init(cb) {
-    Device.find({ services: 'irrigation' })
-      .select('-__v')
-      .lean()
-      .exec(done);
-
-    function done(error, devices) {
+    Device.find({ 'services.irrigation': { $exists: true } })
+    .select('-__v')
+    .exec((error, devices) => {
       if (error) {
         return cb(error);
       }
 
-      async.eachSeries(devices, (device, callback) => {
-        Controller.findOne({ _id: device._id }).lean().exec((err, ctrl) => {
+      async.each(devices, processDevices, (err) => {
+        if (err) {
+          log.warn('Не удалось зарегистрировать некоторые контроллеры полива');
+          return cb(err);
+        }
+        //
+
+        return cb();
+      });
+    });
+
+    function processDevices(device, callback) {
+      if (Object.keys(device.services.irrigation).length !== 0
+        || Object.prototype.hasOwnProperty.call(device, 'update')) {
+        return callback();
+      }
+
+      device.services.irrigation = {                        // eslint-disable-line no-param-reassign
+        status: false,
+        disabled: false,
+        protocol: 'http',
+        circuits: [],
+      };
+
+      device.markModified('services');
+      device.save((error, xxx) => {
+        if (error) {
+          return callback(error);
+        }
+
+        needle.get(`${device.address}`, (err, res) => {
           if (err) {
             return callback(err);
           }
 
-          if (ctrl) {
-            return callback();
+          let parsedBody;
+          try {
+            parsedBody = JSON.parse(res.body);
+          } catch (e) {
+            return callback(e);
           }
 
-          const controller = new Controller();
-          controller._id = device._id;
-          controller.name = device.name;
-          controller.address = device.address;
-          // controller.circuits = request();
-          controller.save((e) => callback(e));
-        });
-      }, (e) => {
-        if (e) {
-          log.warn('Не удалось зарегистрировать некоторые контроллеры полива');
-          return cb(e);
-        }
+          async.each(parsedBody.data, (circuit, callback) => {
 
-        return cb();
+            Circuit.findOne({ _id: circuit._id }).lean().exec((error, results) => {
+              if (error) return callback(error);
+              if (results) return callback();
+              const circuitScaffold = {
+                _id: circuit._id,
+                controller: device._id,
+                status: circuit.status,
+                disabled: circuit.disabled,
+                type: circuit.type,
+              };
+
+              const circuitDocument = new Circuit(circuitScaffold);
+              circuitDocument.save((err) => {
+                if (err) {
+                  return callback(err);
+                }
+                return callback();
+              });
+            });
+          }, (err) => {
+            if (err) return callback(err);
+        return callback();
+          })
+        });
       });
+    }
+
+    function processCircuits(circuit, callback) {
+
     }
   };
 
   /**
-   * Возвращает список зарегистрированных контроллеров полива, либо подробную информацию о
-   * контроллере, идентификатор которого был передан в качестве первого аргумента.
-   *
-   * @param {String}  id     Идентификатор контроллера полива.
-   * @param {Boolean} mongo  Признак документа базы данных.
-   *
-   * @callback callback
-   */
+  * Возвращает список зарегистрированных контроллеров полива, либо подробную информацию о
+  * контроллере, идентификатор которого был передан в качестве первого аргумента.
+  *
+  * @param {String}  id     Идентификатор контроллера полива.
+  * @param {Boolean} mongo  Признак документа базы данных.
+  *
+  * @callback cb
+  */
+
+  // ВНИМАНИЕ
+  // В следующей версии возможно изменение API данной функции на #controllers(id, opts, cb).
   Irrigation.prototype.controllers = function controllers(id, cb, mongoose) {
     const mongo = typeof id === 'function' ? cb : mongoose;
 
     if (typeof id === 'string') {
       if (mongo) {
-        Controller.findOne({ _id: id })
-          .exec(done);
+        Device.findOne({ _id: id })
+        .exec(done);
       } else {
-        Controller.findOne({ _id: id })
-          .select('-__v')
-          .lean()
-          .exec(done);
+        Device.findOne({ _id: id })
+        .select('-__v')
+        .lean()
+        .exec(done);
       }
     }
 
     if (typeof id === 'function') {
       if (mongo) {
-        Controller.find({})
-          .exec(done);
+        Device.find({})
+        .exec(done);
       } else {
-        Controller.find({})
-          .select('-__v')
-          .lean()
-          .exec(done);
+        Device.find({})
+        .select('-__v')
+        .lean()
+        .exec(done);
       }
     }
 
@@ -142,57 +188,33 @@ module.exports = function setup(options, imports, register) {
   };
 
   /**
-   * Возвращает список доступных контуров полива, либо возвращает подробную информацию о контуре,
-   * идентификатор или название которого было передано в качестве первого аргумента.
-   *
-   * @param {Object}  id     Идентификатор контура полива или контроллера.
-   * @param {Boolean} mongo  Признак, указывающий на необходимость возврата документа Mongoose.
-   *
-   * @callback callback
-   */
-  Irrigation.prototype.circuits = function circuits(id, cb, mongoose) {
-    const mongo = typeof id === 'function' ? cb : mongoose;
+  * Возвращает список доступных контуров полива, либо возвращает подробную информацию о контуре,
+  * идентификатор или название которого было передано в качестве первого аргумента.
+  *
+  * @param {Object}  id     Идентификатор контура полива или контроллера.
+  * @param {Boolean} mongo  Признак, указывающий на необходимость возврата документа Mongoose.
+  *
+  * @callback callback
+  */
+  Irrigation.prototype.circuits = function circuits(id, opts, cb) {
+    const mongo = Object.prototype.hasOwnProperty.call(opts, 'mongo');
+    // const populate = Object.prototype.hasOwnProperty.call(options, 'populate');
 
-    if (typeof id === 'string') {
-      // XXX: Should this code be checking against circuit.controller field? Sure needs optimizing.
-      this.controllers(id, (err, controller) => {
-        if (err || !controller) {
-          if (mongo) {
-            Circuit.findOne({ _id: id })
-              .populate('controller')
-              .exec(done);
-          } else {
-            Circuit.findOne({ _id: id })
-              .select('-__v')
-              .populate('controller')
-              .lean()
-              .exec(done);
-          }
-        } else {
-          if (mongo) {
-            Circuit.find({ controller: id })
-              .exec(done);
-          } else {
-            Circuit.find({ controller: id })
-              .select('-__v')
-              .lean()
-              .exec(done);
-          }
-        }
-      }, true);
-    }
-
-    if (typeof id === 'function') {
-      // Return all circuits, all controllers.
-      if (mongo) {
-        Circuit.find({})
-          .exec(done);
-      } else {
-        Circuit.find({})
-          .select('-__v')
-          .lean()
-          .exec(done);
-      }
+    if (id) {
+      Circuit.findOne({ _id: id })
+        .select('-__v')
+        .lean(!mongo)
+        .populate({
+          path: 'controller',
+          model: 'core:device',
+          select: 'address',
+        })
+        .exec(done);
+    } else {
+      Circuit.find({})
+        .select('-__v')
+        .lean(!mongo)
+        .exec(done);
     }
 
     function done(error, data) {
@@ -200,11 +222,11 @@ module.exports = function setup(options, imports, register) {
       if (error) {
         log.error(error);
         return callback(error);
-      } else if (typeof id === 'string' && (!data || typeof data === 'undefined')) {
+      } else if (id && (!data || typeof data === 'undefined')) {
         const err = new Error('Некорректный контур полива');
         log.error({ err, circuit: id });
         return callback(err);
-      } else if (typeof id === 'function' && (!data.length || typeof data === 'undefined')) {
+      } else if (!id && (!data.length || typeof data === 'undefined')) {
         const e = new Error('Отсутствуют сведения о контурах полива');
         log.error({ err: e });
         return callback(e);
@@ -234,9 +256,9 @@ module.exports = function setup(options, imports, register) {
         status: true,
       });
 
-      request.post(`http://${controller.address}/`, payload, {
+      needle.post(`rwr${data}`, data, {
         headers: {
-          'Connection': 'close',                                     /* eslint quote-props: 0 */
+          'Connection': 'close',                                         /* eslint quote-props: 0 */
           'Content-Type': 'application/json',
           'Content-Length': data.length,
         },
@@ -244,6 +266,35 @@ module.exports = function setup(options, imports, register) {
 
       });
     });
+
+    function monitor(circuit) {
+      circuit.status = true;
+      circuit.save((error, fetchedCitcuit) => {
+        if (error) {
+          // log.error()
+          return cb(error);
+        }
+
+        return cb(null, fetchedCitcuit);
+      });
+
+      // Тип контура `резервуар` в настоящее время отключен
+      // для совместимости с установленным оборудованием.
+      // if (circuit.type === 'reservoir') {
+      //
+      // }
+
+      if (opts && opts.hasOwnProperty('moisture') && opts.moisture > 0) {
+
+      }
+
+      if (opts && opts.hasOwnProperty('period') && opts.period > 0) {
+
+      }
+
+      // No limit.
+
+    }
   };
 
   register(null, { irrigation: new Irrigation() });

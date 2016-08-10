@@ -2,6 +2,7 @@
   "extends": "airbnb-base",
   "rules": {
     "handle-callback-err": [1, "err"],
+    "no-param-reassign": ["error", { "props": false }],
     "no-underscore-dangle": ["error", { "allow": ["_id"] }],
     "no-use-before-define": ["error", { "functions": false }],
     "radix": [1, "as-needed"],
