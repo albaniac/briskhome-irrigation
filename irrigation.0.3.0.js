@@ -55,7 +55,6 @@ module.exports = function setup(options, imports, register) {
 
       async.each(devices, processDevices, (err) => {
         if (err) {
-          log.warn('Не удалось зарегистрировать некоторые контроллеры полива');
           return cb(err);
         }
         //
@@ -73,7 +72,6 @@ module.exports = function setup(options, imports, register) {
       device.services.irrigation = {                        // eslint-disable-line no-param-reassign
         status: false,
         disabled: false,
-        protocol: 'http',
         circuits: [],
       };
 
@@ -95,7 +93,7 @@ module.exports = function setup(options, imports, register) {
             return callback(e);
           }
 
-          async.each(parsedBody.data, (circuit, callback) => {
+          return async.each(parsedBody.data, (circuit, callback) => {
 
             Circuit.findOne({ _id: circuit._id }).lean().exec((error, results) => {
               if (error) return callback(error);
@@ -118,14 +116,10 @@ module.exports = function setup(options, imports, register) {
             });
           }, (err) => {
             if (err) return callback(err);
-        return callback();
+            return callback();
           })
         });
       });
-    }
-
-    function processCircuits(circuit, callback) {
-
     }
   };
 
@@ -218,7 +212,7 @@ module.exports = function setup(options, imports, register) {
     }
 
     function done(error, data) {
-      const callback = (typeof id === 'function') ? id : cb;
+      const callback = cb;
       if (error) {
         log.error(error);
         return callback(error);
@@ -236,34 +230,37 @@ module.exports = function setup(options, imports, register) {
     }
   };
 
+  /**
+   *
+   */
   Irrigation.prototype.start = function start(id, opts, cb) {
-    const callback = cb || (() => {});
-
-    this.circuits(id, (error, circuit) => {
-      if (error) return callback(error);
+    this.circuits(id, { mongo: true }, (error, circuit) => {
+      if (error) return cb(error);
 
       if (circuit.status) {
         const err = new Error('Попытка включения уже включённого контура полива');
         log.debug({ err, circuit: circuit.name });
-        return callback(null, err);
+        return cb(err);
       }
-
-      console.log(circuit);
 
       // Обработка запроса на включение полива контура
       const data = JSON.stringify({
-        name: circuit.name,
+        _id: circuit._id,
         status: true,
       });
 
-      needle.post(`rwr${data}`, data, {
+      needle.post(`http://${circuit.controller.address}/`, data, {
         headers: {
           'Connection': 'close',                                         /* eslint quote-props: 0 */
           'Content-Type': 'application/json',
           'Content-Length': data.length,
         },
       }, (err, res) => {
+        if (err) {
+          return cb(err);
+        }
 
+        return monitor(circuit);
       });
     });
 
@@ -295,6 +292,45 @@ module.exports = function setup(options, imports, register) {
       // No limit.
 
     }
+  };
+
+  /**
+   *
+   */
+  Irrigation.prototype.stop = function (id, opts, cb) {
+    // clearInterval(self.timers[id]);
+    this.circuits(id, { mongo: true }, (circuitQueryErr, circuit) => {
+      if (circuitQueryErr) {
+        // log
+        return cb(circuitQueryErr);
+      }
+
+      if (!circuit.status) {
+        const circuitActiveErr = new Error('Попытка выключения уже выключенного контура полива');
+        log.debug({ err: circuitActiveErr, circuit: circuit.name });
+        return cb(circuitActiveErr);
+      }
+
+      // log.trace('stopping')
+      const data = JSON.stringify({
+        _id: circuit._id,
+        status: false,
+      });
+
+      needle.post(`http://${circuit.controller.address}/`, data, {
+        headers: {
+          'Connection': 'close',                                         /* eslint quote-props: 0 */
+          'Content-Type': 'application/json',
+          'Content-Length': data.length,
+        },
+      }, (err, res) => {
+        if (err) {
+          return cb(err);
+        }
+
+        return cb(null, circuit);
+      });
+    })
   };
 
   register(null, { irrigation: new Irrigation() });

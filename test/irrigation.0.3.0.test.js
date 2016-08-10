@@ -3,8 +3,9 @@
 /* eslint global-require: [0] */
 /* eslint func-names: [0] */
 /* eslint prefer-arrow-callback: [0] */
-
+'use strict';
 // Модули, необходимые для тестирования
+const nock = require('nock');
 const async = require('async');
 const sinon = require('sinon');
 const assert = require('chai').assert;
@@ -19,6 +20,7 @@ const ControllerMock = sinon.mock(Controller);
 const db = mongoose.connect('mongodb://briskhome:briskhome@localhost/test');
 const log = () => {
   return {
+    debug: sinon.stub(),
     info: sinon.stub(),
     warn: sinon.stub(),
     error: sinon.stub(),
@@ -56,6 +58,10 @@ describe('Irrigation', function () {
 
     describe('#init()', function () {
 
+      before(function () {
+        console.log('    (warning: test in this section need verifying)');
+      });
+
       beforeEach(function (done) {
         async.auto({
           devices: (callback) => {
@@ -84,6 +90,9 @@ describe('Irrigation', function () {
       });
 
       it('should scaffold out a controller', function (done) {
+        nock(`http://${stubs.devices[0].address}/`)
+          .get('/')
+          .reply(200, stubs.responses[0]);
         irrigation.init((err) => {
           if (err) return done(err);
           Device.findOne({}).lean().exec((e, device) => {
@@ -95,7 +104,9 @@ describe('Irrigation', function () {
       });
 
       it('should register circuits', function (done) {
-        // TODO: In this test I need to spawn a controller.test.js or a fake server.
+        nock(`http://${stubs.devices[0].address}/`)
+          .get('/')
+          .reply(200, stubs.responses[0]);
         irrigation.init((err) => {
           if (err) return done(err);
           Circuit.find({ controller: stubs.devices[0]._id }).lean().exec((e, circuits) => {
@@ -103,6 +114,84 @@ describe('Irrigation', function () {
             assert.equal(circuits.length, 2);
             return done();
           });
+        });
+      });
+
+      it('should not register a device without irrigation service', function (done) {
+        nock(`http://${stubs.devices[0].address}/`)
+          .get('/')
+          .reply(200, stubs.responses[0]);
+        Device.collection.insert(stubs.onewire[0], (err) => {
+          irrigation.init((err) => {
+            if (err) return done(err);
+            Device.findOne({ _id: 'a3a3816f-1f6f-4a08-a40d-5a35b53439a2' }).lean().exec((e, device) => {
+              if (err) return done(e);
+              assert.isUndefined(device.services.irrigation);
+              return done();
+            });
+          });
+        });
+      });
+
+      it('should register circuits', function (done) {
+        nock(`http://${stubs.devices[0].address}/`)
+          .get('/')
+          .reply(200, stubs.responses[0]);
+        nock(`http://${stubs.devices[0].address}/`)
+          .get('/')
+          .reply(stubs.responses[0]);
+        irrigation.init((err) => {
+          if (err) return done(err);
+          Circuit.find({ controller: stubs.devices[0]._id }).lean().exec((e, circuits) => {
+            if (err) return done(e);
+            assert.equal(circuits.length, 2);
+            irrigation.init((err) => {
+              if (err) return done(err);
+              Circuit.find({ controller: stubs.devices[0]._id }).lean().exec((e, circuits) => {
+                if (err) return done(e);
+                assert.equal(circuits.length, 2);
+                return done();
+              });
+            });
+          });
+        });
+      });
+
+      it('should fail if a response in invalid', function (done) {
+        nock(`http://${stubs.devices[0].address}/`)
+          .get('/')
+          .replyWithError('error');
+        irrigation.init((err) => {
+          assert.instanceOf(err, Error);
+          return done();
+        });
+      });
+
+      it('should fail if a network error occurs', function (done) {
+        nock(`http://${stubs.devices[0].address}/`)
+          .get('/')
+          .replyWithError('error');
+        irrigation.init((err) => {
+          assert.instanceOf(err, Error);
+          return done();
+        });
+      });
+
+      it('should fail if a database error occurs', function (done) {
+        const stub = sinon.stub(mongoose.Query.prototype, 'exec').yields(new Error('MongoError'));
+        irrigation.init((err) => {
+          stub.restore();
+          assert.instanceOf(err, Error);
+          done();
+        });
+      });
+
+      it('should fail if cannot save Device', function (done) {
+        const stub = sinon.stub(Device.prototype, 'save').yields(new Error('MongoError'));
+        irrigation.init((err) => {
+          stub.restore();
+          assert.instanceOf(err, Error);
+          done();
         });
       });
     });
@@ -220,7 +309,7 @@ describe('Irrigation', function () {
         });
       });
 
-      it('should return a circuit as a db document', function (done) {
+      it('should return a circuit as a database document', function (done) {
         irrigation.circuits(stubs.circuits[0]._id, { mongo: true }, (err, circuit) => {
           if (err) return done(err);
           assert.equal(circuit._id, stubs.circuits[0]._id);
@@ -229,7 +318,7 @@ describe('Irrigation', function () {
         });
       });
 
-      it('should return all circuits of all controllers', function (done) {
+      it('should return all circuits', function (done) {
         irrigation.circuits(null, {}, (err, circuits) => {
           if (err) return done(err);
           assert.equal(circuits.length, 6);
@@ -237,7 +326,7 @@ describe('Irrigation', function () {
         });
       });
 
-      it('should return all circuits of all controller as a db document', function (done) {
+      it('should return all circuits as a database document', function (done) {
         irrigation.circuits(null, { mongo: true }, (err, circuits) => {
           if (err) return done(err);
           async.each(circuits, (circuit, callback) => {
@@ -280,15 +369,135 @@ describe('Irrigation', function () {
 
     describe('#start()', function () {
 
-      it('should start a circuit');
-      it('should fail if circuit is already started');
-      it('should fail if circuit is incorrect');
+      beforeEach(function (done) {
+        async.auto({
+          devices: (callback) => {
+            Device.collection.insert(stubs.devices, (err, data) => callback(err, data));
+          },
+          circuits: (callback) => {
+            Circuit.collection.insert(stubs.circuits, (err, data) => callback(err, data));
+          },
+        }, (err) => done(err));
+      });
+
+      afterEach(function (done) {
+        async.auto({
+          devices: (callback) => {
+            Device.collection.remove((err, data) => callback(err, data));
+          },
+          circuits: (callback) => {
+            Circuit.collection.remove((err, data) => callback(err, data));
+          },
+        }, (err) => done(err));
+      });
+
+      it('should start a circuit', function (done) {
+        nock(`http://${stubs.devices[0].address}/`)
+          .post('/', JSON.stringify({ _id: stubs.circuits[0]._id, status: true }))
+          .reply(200);
+        irrigation.start(stubs.circuits[0]._id, {}, (err, circuit) => {
+          assert.isNull(err);
+          assert.equal(circuit.status, true);
+          return done();
+        });
+      });
+
+      it('should fail if circuit is already started', function (done) {
+        Circuit.collection.findAndModify(
+          { _id: stubs.circuits[0]._id }, {},
+          { $set: { status: true } }, (err) => {
+            if (err) return done(err);
+            return irrigation.start(stubs.circuits[0]._id, {}, (e) => {
+              assert.instanceOf(e, Error);
+              return done();
+            });
+          });
+      });
+
+      it('should fail if a database error occurs', function (done) {
+        const stub = sinon.stub(mongoose.Query.prototype, 'exec').yields(new Error('MongoError'));
+        irrigation.start(stubs.circuits[0]._id, {}, (err) => {
+          stub.restore();
+          assert.instanceOf(err, Error);
+          return done();
+        });
+      });
+
+      it('should fail if controller is inavailable', function (done) {
+        nock(`http://${stubs.devices[0].address}/`)
+          .post('/', JSON.stringify({ _id: stubs.circuits[0]._id, status: true }))
+          .replyWithError('error');
+        irrigation.start(stubs.circuits[0]._id, {}, (err) => {
+          assert.instanceOf(err, Error);
+          return done();
+        });
+      });
     });
 
     describe('#stop()', function () {
-      it('should stop a circuit');
-      it('should fail if circuit is already stopped');
-      it('should fail if circuit is incorrect');
+
+      beforeEach(function (done) {
+        async.auto({
+          devices: (callback) => {
+            Device.collection.insert(stubs.devices, (err, data) => callback(err, data));
+          },
+          circuits: (callback) => {
+            Circuit.collection.insert(stubs.circuits, (err, data) => callback(err, data));
+          },
+        }, (err) => done(err));
+      });
+
+      afterEach(function (done) {
+        async.auto({
+          devices: (callback) => {
+            Device.collection.remove((err, data) => callback(err, data));
+          },
+          circuits: (callback) => {
+            Circuit.collection.remove((err, data) => callback(err, data));
+          },
+        }, (err) => done(err));
+      });
+
+      it('should stop a circuit', function (done) {
+        nock(`http://${stubs.devices[0].address}/`)
+          .post('/', JSON.stringify({ _id: stubs.circuits[0]._id, status: true }))
+          .reply(200);
+          Circuit.collection.findAndModify(
+            { _id: stubs.circuits[0]._id }, {},
+            { $set: { status: true } }, (err) => {
+              if (err) return done(err);
+              return irrigation.start(stubs.circuits[0]._id, {}, (e) => {
+                assert.instanceOf(e, Error);
+                return done();
+              });
+            });
+      });
+
+      it('should fail if circuit is already stopped', function (done) {
+        irrigation.stop(stubs.circuits[0]._id, {}, (e) => {
+          assert.instanceOf(e, Error);
+          return done();
+        });
+      });
+
+      it('should fail if a database error occurs', function (done) {
+        const stub = sinon.stub(mongoose.Query.prototype, 'exec').yields(new Error('MongoError'));
+        irrigation.stop(stubs.circuits[0]._id, {}, (err) => {
+          stub.restore();
+          assert.instanceOf(err, Error);
+          return done();
+        });
+      });
+
+      it('should fail if controller is inavailable', function (done) {
+        nock(`http://${stubs.devices[0].address}/`)
+          .post('/', JSON.stringify({ _id: stubs.circuits[0]._id, status: true }))
+          .replyWithError('error');
+        irrigation.stop(stubs.circuits[0]._id, {}, (err) => {
+          assert.instanceOf(err, Error);
+          return done();
+        });
+      });
     });
   });
 });

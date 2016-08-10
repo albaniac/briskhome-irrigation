@@ -20,7 +20,6 @@ module.exports = {
   }],
   controllers: [{
     circuits: [],
-    protocol: 'http',
     disabled: false,
     status: false,
   }],
@@ -28,6 +27,7 @@ module.exports = {
     _id: '985cbb6e-eb1e-46f9-8d41-ed063175deee',
     name: 'Контур 1',
     controller: 'd7fa0d0a-4fd9-462f-97b5-ba18fef1a7cb',
+    status: false,
   }, {
     _id: 'd382a277-3aab-47fb-aa03-532b3ff8cf07',
     name: 'Контур 2',
@@ -48,5 +48,27 @@ module.exports = {
     _id: '7cc61016-f68a-4671-99ad-960b07881f39',
     name: 'Контур 6',
     controller: 'c26e1c28-a49d-4552-8f4c-34403de5731f',
+  }],
+  responses: [`{
+    "status": 200,
+    "data": [{
+      "_id": "985cbb6e-eb1e-46f9-8d41-ed063175deee",
+      "status": false,
+      "sensors": {
+        "level": 610
+      }
+    }, {
+      "_id": "d382a277-3aab-47fb-aa03-532b3ff8cf07",
+      "status": false,
+      "sensors": {
+        "moisture": 900
+      }
+    }]
+  }`],
+  onewire: [{
+    _id: 'a3a3816f-1f6f-4a08-a40d-5a35b53439a2',
+    name: 'Контроллер сенсоров 1',
+    address: '127.0.0.4:8888',
+    services: { onewite: {} },
   }],
 };
