@@ -1,4 +1,4 @@
-image: training4developers/docker-node-mongo
+image: training4developers/node-mongo
 
 pipelines:
   default:
