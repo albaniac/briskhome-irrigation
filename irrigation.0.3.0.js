@@ -136,7 +136,7 @@ module.exports = function setup(options, imports, register) {
                       return sensorProcessCb();
                     }
 
-                    circuit.sensors.push(sensorSaveRes._id);
+                    circuit.sensors[ctrlCircuitSensor.kind] = sensorSaveRes._id;
                     return sensorProcessCb();
                   });
                 });
@@ -344,7 +344,7 @@ module.exports = function setup(options, imports, register) {
           return cb(err);
         }
         // res?
-        return monitor(circuit);
+        return monitor.call(this, circuit);
       });
     });
 
@@ -365,41 +365,25 @@ module.exports = function setup(options, imports, register) {
       // В дальнейшем можно усложнить проверку, наполняя объект контура типами подключенных сен-
       // соров и проверяя одновременно и тип контура и наличие опредленного типа сенсоров.
       // if (circuit.isResevoir) {
-      //
+      //   // TODO: Не реализовано.
       // }
 
-      // circuit.sensors.forEach(sen)
-
       if (opts && Object.prototype.hasOwnProperty.apply('moisture', opts) && opts.moisture > 0) {
-        this.timers[circuit._id] = setInterval(() => {
-          this.circuits(circuit._id, {}, (circuitQueryErr, updatedCircuit) => {
-            if (circuitQueryErr) {
-              // log()
-              return;
-            }
-
-            const level = parseInt(updatedCircuit.sensors.level);
-            log.trace({
-              circuit: circuit.name,
-              data: {
-                curLevel: level,
-                maxLevel: config.max,
-              },
-            }, 'Проверка условий для выключения наполнения резервуара');
-            if (level >= config.max) {
-              self.stop(circuit.name);
-            }
-          });
-        }, config.interval * 1000);
+        // TODO: Не реализовано.
       }
 
       if (opts && Object.prototype.hasOwnProperty.apply('time', opts) && opts.time > 0) {
-
+        // TODO: Не реализовано.
       }
 
-      // No limit.
+      log.info({ circuit: circuit.name, data: opts },
+        'Включен полив контура без указания ограничений');
 
-    }
+      this.timers[circuit._id] = setInterval(() => {
+
+      }, 30 * 1000);
+      console.log(this.timers);
+    };
   };
 
   /**

@@ -18,7 +18,9 @@ const Circuit = require('../models/Circuit.model.js')(mongoose);
 const Controller = require('../models/Controller.model.js')(mongoose);
 const ControllerMock = sinon.mock(Controller);
 
-const db = mongoose.connect('mongodb://briskhome:briskhome@localhost/test');
+let db;
+db = mongoose.connect('mongodb://briskhome:briskhome@localhost/test');
+
 const log = () => {
   return {
     debug: sinon.stub(),
@@ -213,7 +215,6 @@ describe('Irrigation', function () {
         Device.collection.remove((err) => {
           if (err) return done(err);
           irrigation.controllers(null, {}, (err, data) => {
-            console.log('data', data);
             assert.instanceOf(err, Error);
             return done();
           });

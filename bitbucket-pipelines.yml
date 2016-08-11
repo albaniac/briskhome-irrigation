@@ -1,0 +1,9 @@
+image: training4developers/docker-node-mongo
+
+pipelines:
+  default:
+    - step:
+      script:
+        - npm --version
+        - npm install
+        - npm run coverage
