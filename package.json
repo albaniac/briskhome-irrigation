@@ -32,6 +32,6 @@
   },
   "scripts": {
     "test": "mocha test/irrigation.0.3.0.test.js",
-    "coverage": "istanbul cover _mocha -- -R spec test/irrigation.0.3.0.test.js"
+    "coverage": "istanbul cover -x \"**/models/**\" _mocha -- -R spec test/irrigation.0.3.0.test.js"
   }
 }

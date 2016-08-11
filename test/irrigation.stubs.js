@@ -6,7 +6,8 @@ module.exports = {
     _id: 'd7fa0d0a-4fd9-462f-97b5-ba18fef1a7cb',
     name: 'Контроллер полива 1',
     address: '127.0.0.1:8888',
-    services: { irrigation: {} },
+    services: { irrigation: {
+    } },
   }, {
     _id: '9f732952-f66a-4b32-8250-655091800e43',
     name: 'Контроллер полива 2',
@@ -20,8 +21,6 @@ module.exports = {
   }],
   controllers: [{
     circuits: [],
-    disabled: false,
-    status: false,
   }],
   circuits: [{
     _id: '985cbb6e-eb1e-46f9-8d41-ed063175deee',
@@ -54,15 +53,23 @@ module.exports = {
     "data": [{
       "_id": "985cbb6e-eb1e-46f9-8d41-ed063175deee",
       "status": false,
-      "sensors": {
-        "level": 610
-      }
+      "sensors": [{
+        "serial": "1234567890",
+        "kind": "distance",
+        "value": 610
+      }, {
+        "serial": "2345678901",
+        "kind": "temperature",
+        "value": 35
+      }]
     }, {
       "_id": "d382a277-3aab-47fb-aa03-532b3ff8cf07",
       "status": false,
-      "sensors": {
-        "moisture": 900
-      }
+      "sensors": [{
+        "serial": "3456789012",
+        "kind": "moisture",
+        "value": 900
+      }]
     }]
   }`],
   onewire: [{
@@ -71,4 +78,59 @@ module.exports = {
     address: '127.0.0.4:8888',
     services: { onewite: {} },
   }],
+  registered: {
+    devices: [{
+      "_id": "d7fa0d0a-4fd9-462f-97b5-ba18fef1a7cb",
+      "name": "Контроллер полива 1",
+      "address": "127.0.0.1:8888",
+      "services": {
+        "irrigation": {
+          "circuits": [
+            "985cbb6e-eb1e-46f9-8d41-ed063175deee",
+            "d382a277-3aab-47fb-aa03-532b3ff8cf07"
+          ]
+        }
+      },
+    }],
+    circuits: [{
+      "_id": "985cbb6e-eb1e-46f9-8d41-ed063175deee",
+      "controller": "d7fa0d0a-4fd9-462f-97b5-ba18fef1a7cb",
+      "sensors": [
+        "ff3d231d-eb87-455b-a1fd-72bd5c9059ba",
+        "cab61681-3e29-45a0-928b-4db37f79b153"
+      ],
+      "isResevoir": false,
+      "isDisabled": false,
+      "isActive": false,
+      "name": "",
+      "__v": 0
+    }, {
+      "_id": "d382a277-3aab-47fb-aa03-532b3ff8cf07",
+      "controller": "d7fa0d0a-4fd9-462f-97b5-ba18fef1a7cb",
+      "sensors": [
+        "7778c2c2-0529-444e-947b-ac07617428e1"
+      ],
+      "isResevoir": false,
+      "isDisabled": false,
+      "isActive": false,
+      "name": "",
+      "__v": 0
+    }],
+    sensors: [{
+      "_id": "ff3d231d-eb87-455b-a1fd-72bd5c9059ba",
+      "serial": "1234567890",
+      "device": "d7fa0d0a-4fd9-462f-97b5-ba18fef1a7cb",
+      "kind": "distance",
+    }, {
+      "_id": "cab61681-3e29-45a0-928b-4db37f79b153",
+      "serial": "2345678901",
+      "device": "d7fa0d0a-4fd9-462f-97b5-ba18fef1a7cb",
+      "kind": "temperature",
+    }, {
+      "_id": "7778c2c2-0529-444e-947b-ac07617428e1",
+      "serial": "3456789012",
+      "device": "d7fa0d0a-4fd9-462f-97b5-ba18fef1a7cb",
+      "kind": "moisture",
+    }],
+  },
 };
