@@ -1,11 +1,10 @@
-image: training4developers/node-mongo
+image: node:5.12.0
 
 pipelines:
   default:
     -
       step:
         script:
-          - "npm --version"
-          - "npm install -g mocha instanbul"
           - "npm install"
+          - "npm run lint"
           - "npm run coverage"

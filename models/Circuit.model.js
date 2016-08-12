@@ -57,8 +57,8 @@ module.exports = (db) => {
 
     // Массив сенсоров, подключенных к контуру полива.
     sensors: {
-      type: [String],
-      default: [],
+      type: db.Schema.Types.Mixed,
+      default: {},
     },
   }, {
     collection: 'irrigation.circuits',

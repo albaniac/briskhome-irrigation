@@ -5,21 +5,22 @@
 /* eslint prefer-arrow-callback: [0] */
 'use strict';
 // Модули, необходимые для тестирования
+const db = require('mongoose');
 const nock = require('nock');
 const async = require('async');
 const sinon = require('sinon');
 const assert = require('chai').assert;
-const mongoose = require('mongoose');
+const mockgoose = require('mockgoose');
 
-const Location = require('/opt/briskhome/lib/core.db/models/allocation.model.js')(mongoose);
-const Device = require('/opt/briskhome/lib/core.db/models/device.model.js')(mongoose);
-const Sensor = require('/opt/briskhome/lib/core.db/models/sensor.model.js')(mongoose);
-const Circuit = require('../models/Circuit.model.js')(mongoose);
-const Controller = require('../models/Controller.model.js')(mongoose);
-const ControllerMock = sinon.mock(Controller);
+const Location = require('./models/allocation.model.js')(db);
+const Device = require('./models/device.model.js')(db);
+const Sensor = require('./models/sensor.model.js')(db);
+const Reading = require('./models/reading.model.js')(db);
+const Circuit = require('../models/Circuit.model.js')(db);
 
-let db;
-db = mongoose.connect('mongodb://briskhome:briskhome@localhost/test');
+mockgoose(db).then(function () {
+  db.connect('mongodb://briskhome:briskhome@localhost/test');
+});
 
 const log = () => {
   return {
@@ -64,7 +65,6 @@ describe('Irrigation', function () {
     });
 
     after(function () {
-      Controller.collection.remove();
       Circuit.collection.remove();
       Device.collection.remove();
     });
@@ -116,7 +116,7 @@ describe('Irrigation', function () {
       });
 
       it('should fail to register a device if a database error occurs', function (done) {
-        const stub = sinon.stub(mongoose.Query.prototype, 'exec').yields(new Error('MongoError'));
+        const stub = sinon.stub(db.Query.prototype, 'exec').yields(new Error('MongoError'));
         irrigation.init((initErr) => {
           assert.instanceOf(initErr, Error);
           stub.restore();
@@ -222,7 +222,7 @@ describe('Irrigation', function () {
       });
 
       it('should fail if a database error occurs', function (done) {
-        const stub = sinon.stub(mongoose.Query.prototype, 'exec').yields(new Error('MongoError'));
+        const stub = sinon.stub(db.Query.prototype, 'exec').yields(new Error('MongoError'));
         irrigation.controllers(null, {}, (err) => {
           stub.restore();
           assert.instanceOf(err, Error);
@@ -315,7 +315,7 @@ describe('Irrigation', function () {
       });
 
       it('should fail if a database error occurs', function (done) {
-        const stub = sinon.stub(mongoose.Query.prototype, 'exec').yields(new Error('MongoError'));
+        const stub = sinon.stub(db.Query.prototype, 'exec').yields(new Error('MongoError'));
         irrigation.circuits(null, {}, (err) => {
           stub.restore();
           assert.instanceOf(err, Error);
@@ -396,7 +396,7 @@ describe('Irrigation', function () {
       });
 
       it('should fail if a database error occurs', function (done) {
-        const stub = sinon.stub(mongoose.Query.prototype, 'exec').yields(new Error('MongoError'));
+        const stub = sinon.stub(db.Query.prototype, 'exec').yields(new Error('MongoError'));
         irrigation.start(stubs.circuits[0]._id, {}, (err) => {
           stub.restore();
           assert.instanceOf(err, Error);
@@ -469,7 +469,7 @@ describe('Irrigation', function () {
       });
 
       it('should fail if a database error occurs', function (done) {
-        const stub = sinon.stub(mongoose.Query.prototype, 'exec').yields(new Error('MongoError'));
+        const stub = sinon.stub(db.Query.prototype, 'exec').yields(new Error('MongoError'));
         Circuit.collection.findAndModify({
           _id: stubs.circuits[0]._id,
         }, {}, {

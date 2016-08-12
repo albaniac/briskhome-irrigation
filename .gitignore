@@ -2,4 +2,4 @@ _*
 .DS_Store
 *.zip
 node_modules
-specs
+specs/coverage

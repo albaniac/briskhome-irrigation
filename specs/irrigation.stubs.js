@@ -1,6 +1,4 @@
-/**
-*
-*/
+/* eslint-disable */
 module.exports = {
   devices: [{
     _id: 'd7fa0d0a-4fd9-462f-97b5-ba18fef1a7cb',

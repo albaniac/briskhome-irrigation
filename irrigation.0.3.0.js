@@ -16,7 +16,7 @@ module.exports = function setup(options, imports, register) {
   // const bus = imports.bus;
   // const planner = imports.planner;
 
-  const config = imports.config('irrigation');
+  // const config = imports.config('irrigation');
   const log = imports.log('irrigation', {
     circuit: 'String',
     controller: 'String',
@@ -25,6 +25,7 @@ module.exports = function setup(options, imports, register) {
   const db = imports.db;
   const Device = db.model('core:device');
   const Sensor = db.model('core:sensor');
+  // const Reading = db.model('core:reading');
   const Circuit = db.model('irrigation:circuit');
 
   // const Measure = db.model('core:measure');
@@ -64,6 +65,8 @@ module.exports = function setup(options, imports, register) {
 
           return cb();
         });
+
+        return null;
       }
     );
 
@@ -113,14 +116,20 @@ module.exports = function setup(options, imports, register) {
               _id: ctrlConnResCircuit._id,
               controller: device._id,
               isResevoir: ctrlConnResCircuit.ctrlConnResCircuit,
-              sensors: [],
+              sensors: {},
             });
 
             if (ctrlConnResCircuit.sensors) {
               async.each(ctrlConnResCircuit.sensors, (ctrlCircuitSensor, sensorProcessCb) => {
-                Sensor.count({ serial: ctrlCircuitSensor.serial }, (sensorCountErr, sensorCount) => {
+                Sensor.count({
+                  serial: ctrlCircuitSensor.serial,
+                }, (sensorCountErr, sensorCount) => {
                   if (sensorCountErr) {
                     log.error({ err: sensorCountErr });
+                    return sensorProcessCb();
+                  }
+
+                  if (sensorCount > 0) {
                     return sensorProcessCb();
                   }
 
@@ -139,6 +148,8 @@ module.exports = function setup(options, imports, register) {
                     circuit.sensors[ctrlCircuitSensor.kind] = sensorSaveRes._id;
                     return sensorProcessCb();
                   });
+
+                  return null;
                 });
               }, sensorProcessErr => {
                 if (sensorProcessErr) {
@@ -157,6 +168,8 @@ module.exports = function setup(options, imports, register) {
                 });
               });
             }
+
+            return null;
           });
         }, circuitProcessErr => {
           if (circuitProcessErr) {
@@ -173,6 +186,8 @@ module.exports = function setup(options, imports, register) {
             return callback();
           });
         });
+
+        return null;
       });
     }
   };
@@ -339,7 +354,7 @@ module.exports = function setup(options, imports, register) {
           'Content-Type': 'application/json',
           'Content-Length': data.length,
         },
-      }, (err, res) => {
+      }, (err) => { // res?
         if (err) {
           return cb(err);
         }
@@ -370,6 +385,9 @@ module.exports = function setup(options, imports, register) {
 
       if (opts && Object.prototype.hasOwnProperty.apply('moisture', opts) && opts.moisture > 0) {
         // TODO: Не реализовано.
+        this.timers[circuit._id] = setInterval(() => {
+
+        }, 30 * 1000);
       }
 
       if (opts && Object.prototype.hasOwnProperty.apply('time', opts) && opts.time > 0) {
@@ -378,18 +396,13 @@ module.exports = function setup(options, imports, register) {
 
       log.info({ circuit: circuit.name, data: opts },
         'Включен полив контура без указания ограничений');
-
-      this.timers[circuit._id] = setInterval(() => {
-
-      }, 30 * 1000);
-      console.log(this.timers);
-    };
+    }
   };
 
   /**
   *
   */
-  Irrigation.prototype.stop = function (id, opts, cb) {
+  Irrigation.prototype.stop = function stop(id, opts, cb) {
     // clearInterval(self.timers[id]);
     this.circuits(id, { mongo: true, populate: true }, (circuitQueryErr, circuit) => {
       if (circuitQueryErr) {
@@ -415,7 +428,7 @@ module.exports = function setup(options, imports, register) {
           'Content-Type': 'application/json',
           'Content-Length': data.length,
         },
-      }, (circuitPostError, res) => {
+      }, (circuitPostError) => {  // res?
         if (circuitPostError) {
           // log
           return cb(circuitPostError);
@@ -436,6 +449,54 @@ module.exports = function setup(options, imports, register) {
 
       return false;
     });
+  };
+
+  /**
+   *
+   */
+  Irrigation.prototype.schedule = function schedule(circuit, timetable, cb) {
+    // TODO: NEED TO DEFINE OBJECT STRUCTURE FOR 'DATA'
+    // TODO: Inverse if-then below to return err to callback
+    // TODO: Add callback
+    if (!circuit || !timetable || !cb) {
+      const scheduleErr = new Error();
+      log.error('');
+      return cb(scheduleErr);
+    }
+
+    return async.each(Object.keys(timetable), (timetableDay, timetableCb) => {
+      if (!timetable[timetableDay].length) {
+        return timetableCb();
+      }
+
+
+    }, timetableErr => {
+
+    });
+
+      // Object.keys(data).forEach((day) => {
+      //   if (data[day].length > 0) {
+      //     for (let i = 0; i < data[day].length; i++) {
+      //       const start = data[day][i][0].split(':');
+      //       const startcron = `${start[1]} ${start[0]} * * ${day}`;
+      //       planner.every(
+      //         startcron,
+      //         'irrigation:start',
+      //         { circuit: data.circuit, options: data.options },
+      //         { timezone: 'Europe/Moscow' }
+      //       );
+      //
+      //       const end = data[day][i][1].split(':');
+      //       const endcron = `${end[1]} ${end[0]} * * ${day}`;
+      //       planner.every(
+      //         endcron,
+      //         'irrigation:stop',
+      //         { circuit: data.circuit, options: opts.options },
+      //         { timezone: 'Europe/Moscow' }
+      //       );
+      //     }
+      //   }
+      // });
   };
 
   register(null, { irrigation: new Irrigation() });

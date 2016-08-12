@@ -1,6 +1,6 @@
 {
   "name": "briskhome-irrigation",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "main": "irrigation.0.3.0.js",
   "author": "Egor Zaitsev <ezaitsev@briskhome.com>",
   "private": true,
@@ -22,16 +22,19 @@
     "uuid-1345": "^0.99.6"
   },
   "devDependencies": {
-    "async": "^2.0.1",
     "chai": "^3.5.0",
     "eslint": "^3.2.2",
     "eslint-config-airbnb-base": "^5.0.1",
     "eslint-plugin-import": "^1.12.0",
+    "istanbul": "^0.4.4",
+    "mocha": "^3.0.2",
+    "mockgoose": "^6.0.6",
     "nock": "^8.0.0",
     "sinon": "^1.17.5"
   },
   "scripts": {
-    "test": "mocha test/irrigation.0.3.0.test.js",
-    "coverage": "istanbul cover -x \"**/models/**\" _mocha -- -R spec test/irrigation.0.3.0.test.js"
+    "lint": "node_modules/eslint/bin/eslint.js -c .eslintrc irrigation.0.3.0.js",
+    "test": "node_modules/mocha/bin/mocha specs/irrigation.0.3.0.spec.js",
+    "coverage": "node_modules/istanbul/lib/cli.js cover -x \"**/models/**\" -x \"**/specs/**\" --dir ./specs/coverage --report html node_modules/mocha/bin/_mocha -- -R spec specs/irrigation.0.3.0.spec.js"
   }
 }
