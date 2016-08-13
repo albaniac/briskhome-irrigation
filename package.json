@@ -33,7 +33,7 @@
     "sinon": "^1.17.5"
   },
   "scripts": {
-    "lint": "node_modules/eslint/bin/eslint.js -c .eslintrc irrigation.0.3.0.js",
+    "lint": "node_modules/eslint/bin/eslint.js --quiet -c .eslintrc irrigation.0.3.0.js",
     "test": "node_modules/mocha/bin/mocha specs/irrigation.0.3.0.spec.js",
     "coverage": "node_modules/istanbul/lib/cli.js cover -x \"**/models/**\" -x \"**/specs/**\" --dir ./specs/coverage --report html node_modules/mocha/bin/_mocha -- -R spec specs/irrigation.0.3.0.spec.js"
   }

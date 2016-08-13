@@ -13,8 +13,8 @@ const async = require('async');
 const needle = require('needle');
 
 module.exports = function setup(options, imports, register) {
-  // const bus = imports.bus;
-  // const planner = imports.planner;
+  const bus = imports.bus;
+  const planner = imports.planner;
 
   // const config = imports.config('irrigation');
   const log = imports.log('irrigation', {
@@ -28,26 +28,69 @@ module.exports = function setup(options, imports, register) {
   // const Reading = db.model('core:reading');
   const Circuit = db.model('irrigation:circuit');
 
-  // const Measure = db.model('core:measure');
-
   /**
-  * Класс Controller представляет собой делегата, осуществляющего управление контроллером полива,
-  * расположенным на объекте. В конструкторе осуществляется определение протокола взаимодействия
-  * с контроллером полива и запуск периодических задач, таких как запрос сведений о состоянии и
-  * первоначальная проверка на наличие открытых клапанов.
-  *
-  * @constructor
-  */
+   * Класс Irrigation осуществляет управление контроллерами полива, подключенными к системе и заре-
+   * гистрированными в качестве устройств, взаимодействующих с системой. В конструкторе осуществля-
+   * ется первоначальный вызов инициализатора, который осуществляет первоначальный опрос устройств,
+   * зарегистрированных в качестве контроллера полива, регистрирует данные о контурах полива и под-
+   * ключенных к ним сенсорах; осуществляется регистрация класса в таких компонентах, как core.bus
+   * и core.planner; настраиваются автоматические запросы актуальных данных от контроллеров полива
+   * и обновление хранимой в базе данных информации.
+   *
+   * @constructor
+   */
   function Irrigation() {
     log.info('Инициализация компонента полива');
     this.timers = {};
     this.update = [];
+
+    /**
+     * Определение задачи для компонента планировщика задач.
+     * Задача `irrigation:start`
+     */
+    planner.define('irrigation:start', (job, done) => {
+      if (!Object.prototype.hasOwnProperty.call(job.attrs.data, 'circuit')) {
+        const plannerStartErr = new Error('Не определен контур');
+        log.error({ err: plannerStartErr });
+        return done(plannerStartErr);
+      }
+
+      return this.start(job.attrs.data.circuit, {}, (startErr) => {
+        if (startErr) {
+          return done(startErr);
+        }
+
+        return done();
+      });
+    });
+
+    /**
+    * Определение задачи для компонента планировщика задач.
+    * Задача `irrigation:stop`
+     */
+    planner.define('irrigation:stop', (job, done) => {
+      if (!Object.prototype.hasOwnProperty.call(job.attrs.data, 'circuit')) {
+        const plannerStopErr = new Error('Не определен контур');
+        log.error({ err: plannerStopErr });
+        return done(plannerStopErr);
+      }
+
+      return this.stop(job.attrs.data.circuit, {}, (stopErr) => {
+        if (stopErr) {
+          return done(stopErr);
+        }
+
+        return done();
+      });
+    });
   }
 
   /**
-  * Метод #init() осуществляет первоначальное взаимодействие с контроллером для выявления доступных
-  * контуров полива.
-  */
+   * Метод #init() осуществляет первоначальный отпрос всех устройств, зарегистрированных в качестве
+   * контроллеров полива, получает и сохраняет данные о подключенных контурах полива и сенсорах.
+   *
+   * @callback cb
+   */
   Irrigation.prototype.init = function init(cb) {
     Device.find({ 'services.irrigation': { $exists: true } })
       .select('-__v')
@@ -71,8 +114,9 @@ module.exports = function setup(options, imports, register) {
     );
 
     /**
-     * Основная функция, выполняющая обработку устройств и регистрацию контуров и сенсоров.
-     * @param {Device} device  Контроллер полива (зарегистрированный или нет).
+     * Основная функция, выполняющая обработку устройств и регистрацию контроллеров, контуров и сен-
+     * соров.
+     * @param {Device} device  Устройство.
      * @callback
      */
     function processDevices(device, callback) {
@@ -99,6 +143,8 @@ module.exports = function setup(options, imports, register) {
         //       из контуров полива: нужно проверять, актуален ли он, и если нет, то удалять
         //       связку сенсора и контура полива из базы данных (но не привязку к устройству,
         //       так как она будет использоваться для архивных данных).
+        //
+        //       Можно реализовать с использованием одной из реализаций функции Array.contains().
 
         device.services.irrigation.circuits = [];
         async.each(ctrlConnResParsed.data, (ctrlConnResCircuit, circuitProcessCb) => {
@@ -193,17 +239,16 @@ module.exports = function setup(options, imports, register) {
   };
 
   /**
-  * Возвращает список зарегистрированных контроллеров полива, либо подробную информацию о
-  * контроллере, идентификатор которого был передан в качестве первого аргумента.
-  *
-  * @param {String}  id     Идентификатор контроллера полива.
-  * @param {Boolean} mongo  Признак документа базы данных.
-  *
-  * @callback cb
-  */
-
-  // ВНИМАНИЕ
-  // В следующей версии возможно изменение API данной функции на #controllers(id, opts, cb).
+   * Метод #controllers() возвращает список устройств, зарегистрированных в качестве контроллеров
+   * полива, либо подробную информацию о контроллере, идентификатор которого был передан в качестве
+   * первого аргумента.
+   *
+   * @param {String} id    Идентификатор контроллера полива.
+   * @param {Object} opts  Параметры возвращаемого объекта.
+   *
+   *
+   * @callback cb
+   */
   Irrigation.prototype.controllers = function controllers(id, opts, cb) {
     const mongo = Object.prototype.hasOwnProperty.call(opts, 'mongo');
     const populate = Object.prototype.hasOwnProperty.call(opts, 'populate');
@@ -265,14 +310,14 @@ module.exports = function setup(options, imports, register) {
   };
 
   /**
-  * Возвращает список доступных контуров полива, либо возвращает подробную информацию о контуре,
-  * идентификатор или название которого было передано в качестве первого аргумента.
-  *
-  * @param {Object}  id     Идентификатор контура полива или контроллера.
-  * @param {Boolean} mongo  Признак, указывающий на необходимость возврата документа Mongoose.
-  *
-  * @callback callback
-  */
+   * Метод #circuits() возвращает список зарегистрированных контуров полива, либо подробную информа-
+   * цию о контуре, идентификатор которого был передан в качестве первого аргумента.
+   *
+   * @param {String} id    Идентификатор контура полива.
+   * @param {Object} opts  Параметры возвращаемого объекта.
+   *
+   * @callback cb
+   */
   Irrigation.prototype.circuits = function circuits(id, opts, cb) {
     const mongo = Object.prototype.hasOwnProperty.call(opts, 'mongo');
     const populate = Object.prototype.hasOwnProperty.call(opts, 'populate');
@@ -324,8 +369,16 @@ module.exports = function setup(options, imports, register) {
   };
 
   /**
-  *
-  */
+   * Метод #start() начинает полив указанного контура.
+   *
+   * @param {String} id    Идентификатор контура.
+   * @param {Object} opts  Параметры и условия полива.
+   *
+   * @emits Irrigation#willStart
+   * @emits Irrigation#didStart
+   *
+   * @callback cb
+   */
   Irrigation.prototype.start = function start(id, opts, cb) {
     this.circuits(id, { mongo: true, populate: true }, (error, circuit) => {
       if (error) return cb(error);
@@ -341,6 +394,11 @@ module.exports = function setup(options, imports, register) {
         log.debug({ err, circuit: circuit.name });
         return cb(err);
       }
+
+      bus.emit('irrigation:willStart', {
+        circuit: circuit._id,
+        controller: circuit.controller,
+      });
 
       // Обработка запроса на включение полива контура
       const data = JSON.stringify({
@@ -371,6 +429,11 @@ module.exports = function setup(options, imports, register) {
           return cb(circuitSaveErr);
         }
 
+        bus.emit('irrigation:didStart', {
+          circuit: savedCircuit._id,
+          controller: savedCircuit.controller,
+        });
+
         return cb(null, savedCircuit);
       });
 
@@ -400,11 +463,19 @@ module.exports = function setup(options, imports, register) {
   };
 
   /**
-  *
-  */
+   * Метод #stop() завершает полив указанного контура.
+   *
+   * @param {String} id    Идентификатор контура.
+   * @param {Object} opts  Параметры и условия полива.
+   *
+   * @emits Irrigation#willStop
+   * @emits Irrigation#didStop
+   *
+   * @callback cb
+   */
   Irrigation.prototype.stop = function stop(id, opts, cb) {
-    // clearInterval(self.timers[id]);
-    this.circuits(id, { mongo: true, populate: true }, (circuitQueryErr, circuit) => {
+    clearInterval(this.timers[id]);
+    return this.circuits(id, { mongo: true, populate: true }, (circuitQueryErr, circuit) => {
       if (circuitQueryErr) {
         // log
         return cb(circuitQueryErr);
@@ -416,13 +487,18 @@ module.exports = function setup(options, imports, register) {
         return cb(circuitActiveErr);
       }
 
+      bus.emit('irrigation:willStop', {
+        circuit: circuit._id,
+        controller: circuit.controller,
+      });
+
       // log.trace('stopping')
       const data = JSON.stringify({
         _id: circuit._id,
         status: false,
       });
 
-      needle.post(`http://${circuit.controller.address}/`, data, {
+      return needle.post(`http://${circuit.controller.address}/`, data, {
         headers: {
           'Connection': 'close',                                         /* eslint quote-props: 0 */
           'Content-Type': 'application/json',
@@ -430,37 +506,51 @@ module.exports = function setup(options, imports, register) {
         },
       }, (circuitPostError) => {  // res?
         if (circuitPostError) {
-          // log
+          log.error({
+            err: circuitPostError,
+            circuit: circuit._id,
+            controller: circuit.controller,
+          });
+
           return cb(circuitPostError);
         }
 
         circuit.isActive = false;
-        circuit.save(circuitSaveErr => {
+        return circuit.save((circuitSaveErr, savedCircuit) => {
           if (circuitSaveErr) {
-            // log
+            log.error({
+              err: circuitSaveErr,
+              circuit: circuit._id,
+              controller: circuit.controller,
+            });
+
             return cb(circuitSaveErr);
           }
 
-          return false;
+          bus.emit('irrigation:willStop', {
+            circuit: savedCircuit._id,
+            controller: savedCircuit.controller,
+          });
+
+          return cb(null, savedCircuit);
         });
-
-        return cb(null, circuit);
       });
-
-      return false;
     });
   };
 
   /**
+   * Метод #schedule() осуществляет распознание и сохранение информации о расписании включения и вы-
+   * ключении указанного контура полива, регистрирует расисание в компоненте core.planner.
    *
+   * @param {String} id         Идентификатор контура.
+   * @param {Array}  timetable  Массив расписаний контура.
+   *
+   * @callback cb
    */
-  Irrigation.prototype.schedule = function schedule(circuit, timetable, cb) {
-    // TODO: NEED TO DEFINE OBJECT STRUCTURE FOR 'DATA'
-    // TODO: Inverse if-then below to return err to callback
-    // TODO: Add callback
-    if (!circuit || !timetable || !cb) {
+  Irrigation.prototype.schedule = function schedule(id, timetable, cb) {
+    if (!id || !timetable || !cb) {
       const scheduleErr = new Error();
-      log.error('');
+      log.error({ err: scheduleErr, circuit: id });
       return cb(scheduleErr);
     }
 
@@ -469,34 +559,59 @@ module.exports = function setup(options, imports, register) {
         return timetableCb();
       }
 
+      return async.each(timetable[timetableDay], (timetableDayPeriod, timetableDayCb) => {
+        const start = timetableDayPeriod[0].split(':');
+        const startCron = `${start[1]} ${start[0]} * * ${timetableDay}`;
+        const startJob = planner.create('irrigation:start', { circuit: id });
+        startJob.repeatEvery(startCron, { timezone: 'Europe/Moscow' });
+        return startJob.save(startJobSaveErr => {
+          if (startJobSaveErr) {
+            log.error({ err: startJobSaveErr });
+            return timetableDayCb();
+          }
 
+          const finish = timetableDayPeriod[0].split(':');
+          const finishCron = `${finish[1]} ${finish[0]} * * ${timetableDay}`;
+          const finishJob = planner.create('irrigation:stop', { circuit: id });
+          finishJob.repeatEvery(finishCron, { timezone: 'Europe/Moscow' });
+          return finishJob.save(finishJobSaveErr => {
+            if (finishJobSaveErr) {
+              log.error({ err: finishJobSaveErr });
+            }
+
+            return timetableDayCb();
+          });
+        });
+      }, timetableDayErr => {
+        if (timetableDayErr) {
+          log.error({ err: timetableDayErr });
+        }
+
+        return timetableCb();
+      });
     }, timetableErr => {
+      if (timetableErr) {
+        log.error({ err: timetableErr });
+        return cb(timetableErr);
+      }
 
+      return this.circuits(id, { mongo: true }, (circuitQueryErr, circuit) => {
+        if (circuitQueryErr) {
+          log.error({ err: circuitQueryErr, id });
+          return cb(circuitQueryErr);
+        }
+
+        circuit.timetable = timetable;
+        return circuit.save(circuitSaveErr => {
+          if (circuitSaveErr) {
+            log.error({ err: circuitSaveErr, circuit: id });
+            return cb(circuitSaveErr);
+          }
+
+          return cb();
+        });
+      });
     });
-
-      // Object.keys(data).forEach((day) => {
-      //   if (data[day].length > 0) {
-      //     for (let i = 0; i < data[day].length; i++) {
-      //       const start = data[day][i][0].split(':');
-      //       const startcron = `${start[1]} ${start[0]} * * ${day}`;
-      //       planner.every(
-      //         startcron,
-      //         'irrigation:start',
-      //         { circuit: data.circuit, options: data.options },
-      //         { timezone: 'Europe/Moscow' }
-      //       );
-      //
-      //       const end = data[day][i][1].split(':');
-      //       const endcron = `${end[1]} ${end[0]} * * ${day}`;
-      //       planner.every(
-      //         endcron,
-      //         'irrigation:stop',
-      //         { circuit: data.circuit, options: opts.options },
-      //         { timezone: 'Europe/Moscow' }
-      //       );
-      //     }
-      //   }
-      // });
   };
 
   register(null, { irrigation: new Irrigation() });

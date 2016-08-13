@@ -11,6 +11,7 @@ const async = require('async');
 const sinon = require('sinon');
 const assert = require('chai').assert;
 const mockgoose = require('mockgoose');
+const EventEmitter = require('events');
 
 const Location = require('./models/allocation.model.js')(db);
 const Device = require('./models/device.model.js')(db);
@@ -33,9 +34,13 @@ const log = () => {
 
 const options = {};
 const imports = {
+  bus: new EventEmitter(),
   db,
   config: () => {},
   log,
+  planner: {
+    define: () => {},
+  },
 };
 
 const stubs = require('./irrigation.stubs.js');

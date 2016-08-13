@@ -37,6 +37,10 @@ module.exports = (db) => {
       ref: 'irrigation:controller',
     },
 
+    timetable: {
+      type: Array,
+    },
+
     // Флаг, показывающий запущен ли контур полива в настоящий момент.
     isActive: {
       type: Boolean,
