@@ -597,12 +597,14 @@ module.exports = function setup(options, imports, register) {
           const startCron = `${start[1]} ${start[0]} * * ${timetableDay}`;
           const startJob = planner.create('irrigation:start', { circuit: id });
           startJob.repeatEvery(startCron, { timezone: 'Europe/Moscow' });
+          startJob.computeNextRunAt();
           return startJob.save(startJobSaveErr => {
             if (startJobSaveErr) return timetableIntervalCb(startJobSaveErr);
             const finish = timetableDayPeriod[0].split(':');
             const finishCron = `${finish[1]} ${finish[0]} * * ${timetableDay}`;
             const finishJob = planner.create('irrigation:stop', { circuit: id });
             finishJob.repeatEvery(finishCron, { timezone: 'Europe/Moscow' });
+            finishJob.computeNextRunAt();
             return finishJob.save(finishJobSaveErr => {
               if (finishJobSaveErr) return timetableIntervalCb(finishJobSaveErr);
               return timetableIntervalCb();
