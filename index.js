@@ -5,7 +5,7 @@
  * Компонент управления поливом.
  *
  * @author  Егор Зайцев <ezaitsev@briskhome.com>
- * @version 0.3.0-rc.1
+ * @version 0.3.0-rc.2
  */
 
 'use strict';

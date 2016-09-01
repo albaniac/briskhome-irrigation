@@ -11,7 +11,7 @@
  * Юнит-тесты для компонента управления поливом.
  *
  * @author  Егор Зайцев <ezaitsev@briskhome.com>
- * @version 0.3.0-rc.1
+ * @version 0.3.0-rc.2
  */
 
 
@@ -974,6 +974,7 @@ describe('Irrigation', function () {
         const plannerSaveStub = sinon.stub();
         plannerCreateStub.returns({
           repeatEvery: () => {},
+          computeNextRunAt: () => {},
           save: plannerSaveStub.yields(new Error('Не удалось сохранить расписание')),
         });
         irrigation.schedule(stubs.circuits.registered[0]._id,
@@ -996,6 +997,7 @@ describe('Irrigation', function () {
         plannerSaveStub.onCall(1).yields(new Error('Не удалось сохранить расписание'));
         plannerCreateStub.returns({
           repeatEvery: () => {},
+          computeNextRunAt: () => {},
           save: plannerSaveStub,
         });
 
@@ -1019,6 +1021,7 @@ describe('Irrigation', function () {
         plannerSaveStub.onCall(1).yields(new Error('Не удалось сохранить расписание'));
         plannerCreateStub.returns({
           repeatEvery: () => {},
+          computeNextRunAt: () => {},
           save: plannerSaveStub,
         });
 
@@ -1036,11 +1039,15 @@ describe('Irrigation', function () {
         });
       });
 
-      it('should register a timetable', function (done) {
+      it('should return error if unable to register a timetable', function (done) {
         const circuitSaveStub = sinon.stub(Circuit.prototype, 'save');
         const plannerSaveStub = sinon.stub();
         circuitSaveStub.yields(new Error('MongoError'));
-        plannerCreateStub.returns({ repeatEvery: () => {}, save: plannerSaveStub.yields(null) });
+        plannerCreateStub.returns({
+          repeatEvery: () => {},
+          computeNextRunAt: () => {},
+          save: plannerSaveStub.yields(null),
+        });
         irrigation.schedule(stubs.circuits.registered[0]._id,
         stubs.timetables[0],
         (err) => {
@@ -1054,7 +1061,11 @@ describe('Irrigation', function () {
 
       it('should register a timetable', function (done) {
         const plannerSaveStub = sinon.stub();
-        plannerCreateStub.returns({ repeatEvery: () => {}, save: plannerSaveStub.yields(null) });
+        plannerCreateStub.returns({
+          repeatEvery: () => {},
+          computeNextRunAt: () => {},
+          save: plannerSaveStub.yields(null),
+        });
         irrigation.schedule(stubs.circuits.registered[0]._id,
         stubs.timetables[0],
         (err) => {
