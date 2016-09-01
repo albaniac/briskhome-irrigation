@@ -1,7 +1,7 @@
 {
   "name": "briskhome-irrigation",
-  "version": "0.3.0",
-  "main": "irrigation.0.3.0.js",
+  "version": "0.3.0-rc.1",
+  "main": "index.js",
   "author": "Egor Zaitsev <ezaitsev@briskhome.com>",
   "private": true,
   "plugin": {
@@ -9,7 +9,8 @@
       "log",
       "db",
       "config",
-      "bus"
+      "bus",
+      "planner"
     ],
     "provides": [
       "irrigation"
@@ -32,9 +33,12 @@
     "nock": "^8.0.0",
     "sinon": "^1.17.5"
   },
+  "peerDependencies": {
+    "briskhome-core": "^0.3.0-alpha"
+  },
   "scripts": {
-    "lint": "node_modules/eslint/bin/eslint.js --quiet -c .eslintrc irrigation.0.3.0.js",
-    "test": "node_modules/mocha/bin/mocha specs/irrigation.0.3.0.spec.js",
-    "coverage": "node_modules/istanbul/lib/cli.js cover -x \"**/models/**\" -x \"**/specs/**\" --dir ./specs/coverage --report html node_modules/mocha/bin/_mocha -- -R spec specs/irrigation.0.3.0.spec.js"
+    "lint": "node_modules/eslint/bin/eslint.js --quiet -c .eslintrc index.js",
+    "test": "node_modules/mocha/bin/mocha specs/index.spec.js",
+    "coverage": "node_modules/istanbul/lib/cli.js cover -x \"**/models/**\" -x \"**/specs/**\" --dir ./specs/coverage --report html node_modules/mocha/bin/_mocha -- -R spec specs/index.spec.js"
   }
 }

@@ -5,15 +5,14 @@
  * Модель устройства, подключенного к сети BRISKHOME.
  *
  * @author Egor Zaitsev <ezaitsev@briskhome.com>
- * @version 0.3.0
+ * @version 0.3.0-alpha.1
  */
 
 'use strict';
 
-module.exports = function (db) {
+const uuid = require('uuid-1345');
 
-  const uuid = require('uuid-1345');
-
+module.exports = function setup(db) {
   const Schema = db.Schema;
   const DeviceSchema = new Schema({
     _id: {
@@ -25,7 +24,7 @@ module.exports = function (db) {
     address: { type: String, unique: true },
     hostname: { type: String },
     description: { type: String },
-    location: db.model('core:allocation').schema,
+    location: { type: Schema.Types.Mixed },
     services: { type: Object },
   }, {
     collection: 'devices',

@@ -5,7 +5,7 @@
  * Модель данных датчика.
  *
  * @author Egor Zaitsev <ezaitsev@briskhome.com>
- * @version 0.3.0
+ * @version 0.3.0-alpha.1
  */
 
 'use strict';
@@ -44,24 +44,35 @@ module.exports = function (db) {
     // (например, устройства 1-wire серии 7E), в пользовательской логике необходимо искать датчик
     // одновременно по серийному номеру (например, 7E.E12000001000) и типу (например, `pressure`).
     // Таким образом, в базе данных будет ДВА датчика с ОДНИМ серийным номером, то разными типами.
-    // kind: {
-    //   type: String,
-    //   required: true,
-    //   enum: [
-    //     'distance',
-    //     'humidity',
-    //     'moisture',
-    //     'pressure',
-    //     'temperature',
-    //   ],
-    // },
     kind: {
-      type: db.Schema.Types.Mixed,
+      type: String,
+      // required: true,
+      enum: [
+        'distance',
+        'humidity',
+        'moisture',
+        'pressure',
+        'temperature',
+      ],
     },
+    //
+    values: [{
+      type: String,
+      enum: [
+        'distance',
+        'humidity',
+        'moisture',
+        'pressure',
+        'temperature',
+      ],
+    }],
+    // kind: {
+    //   type: db.Schema.Types.Mixed,
+    // },
 
     // Местоположение датчика. Необходимо для привязки в веб-интерфейсе и пользовательской логике.
     // Используется схема core:allocation.
-    location: db.model('core:allocation').schema,
+    location: { type: Schema.Types.Mixed },
   }, {
     collection: 'sensors',
     timestamps: true,
