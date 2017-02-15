@@ -2,10 +2,10 @@
  * @briskhome
  * └briskhome-irrigation <briskhome-irrigation/index.js>
  *
- * Компонент управления поливом.
+ * Irrigation component.
  *
- * @author  Егор Зайцев <ezaitsev@briskhome.com>
- * @version 0.3.0-rc.2
+ * @author  Egor Zaitsev <ezaitsev@briskhome.com>
+ * @version 0.3.0
  */
 
 'use strict';
@@ -41,7 +41,7 @@ module.exports = function setup(options, imports, register) {
    * @constructor
    */
   function Irrigation() {
-    log.info('Инициализация компонента полива');
+    log.info('Initializing component: irrigation');
 
     // В конфигурационном объекте можно установить параметру `update` значение `false` чтобы от-
     // ключить автоматическую регистрацию и обновление сведений о доступных контроллерах полива.
@@ -64,14 +64,14 @@ module.exports = function setup(options, imports, register) {
      */
     planner.define('irrigation:start', (job, done) => {
       if (!Object.prototype.hasOwnProperty.call(job.attrs.data, 'circuit')) {
-        const plannerStartErr = new Error('Не определен контур');
+        const plannerStartErr = new Error('No circuit defined');
         log.error({ err: plannerStartErr });
         return done(plannerStartErr);
       }
 
       return this.start(job.attrs.data.circuit, {}, startErr => {
         if (startErr) {
-          console.log(startErr);
+          log.error({ err: startErr }, 'An error occured while trying to start a planned job.');
           return done(startErr);
         }
 
@@ -85,14 +85,14 @@ module.exports = function setup(options, imports, register) {
      */
     planner.define('irrigation:stop', (job, done) => {
       if (!Object.prototype.hasOwnProperty.call(job.attrs.data, 'circuit')) {
-        const plannerStopErr = new Error('Не определен контур');
+        const plannerStopErr = new Error('No circuit defined');
         log.error({ err: plannerStopErr });
         return done(plannerStopErr);
       }
 
       return this.stop(job.attrs.data.circuit, {}, stopErr => {
         if (stopErr) {
-          console.log(stopErr);
+          log.error({ err: stopErr }, 'An error occured while trying to stop a planned job.');
           return done(stopErr);
         }
 
@@ -152,7 +152,7 @@ module.exports = function setup(options, imports, register) {
       }
 
       if (!deviceFindRes.length) {
-        const noDevicesErr = new Error('Отсутствуют зарегистрированные устройства');
+        const noDevicesErr = new Error('No valid irrigation controllers registered.');
         log.warn({ err: noDevicesErr });
         return cb();
       }
@@ -327,11 +327,11 @@ module.exports = function setup(options, imports, register) {
         log.error(error);
         return cb(error);
       } else if (id && (!data || typeof data === 'undefined')) {
-        const err = new Error('Некорректный идентификатор контроллера полива');
+        const err = new Error('Invalid irrigation controller UUID.');
         log.error({ err, circuit: id });
         return cb(err);
       } else if (!id && (!data.length || typeof data === 'undefined')) {
-        const e = new Error('Отсутствуют данные о контроллерах полива');
+        const e = new Error('No irrigation controllers registered.');
         log.error({ err: e });
         return cb(e);
       }
@@ -386,11 +386,11 @@ module.exports = function setup(options, imports, register) {
         log.error(error);
         return cb(error);
       } else if (id && (!data || typeof data === 'undefined')) {
-        const err = new Error('Некорректный контур полива');
+        const err = new Error('Invalid irrigation circuit UUID.');
         log.error({ err, circuit: id });
         return cb(err);
       } else if (!id && (!data.length || typeof data === 'undefined')) {
-        const e = new Error('Отсутствуют сведения о контурах полива');
+        const e = new Error('No irrigation circuits registered.');
         log.error({ err: e });
         return cb(e);
       }
@@ -415,13 +415,13 @@ module.exports = function setup(options, imports, register) {
       if (error) return cb(error);
 
       if (circuit.isDisabled) {
-        const err = new Error('Попытка включения отключенного контура');
+        const err = new Error('Unable to start a disabled circuit.');
         log.debug({ err, circuit: circuit.name });
         return cb(err);
       }
 
       if (circuit.isActive) {
-        const err = new Error('Попытка включения уже включённого контура полива');
+        const err = new Error('Unable to start an already active circuit.');
         log.debug({ err, circuit: circuit.name });
         return cb(err);
       }
@@ -457,7 +457,7 @@ module.exports = function setup(options, imports, register) {
       circuit.isActive = true;
       circuit.save((circuitSaveErr, savedCircuit) => {
         if (circuitSaveErr) {
-          // log.error()
+          log.error({ err: circuitSaveErr }, 'Unable to save circuit data.');
           return cb(circuitSaveErr);
         }
 
@@ -490,8 +490,7 @@ module.exports = function setup(options, imports, register) {
       //   // TODO: Не реализовано.
       // }
 
-      log.info({ circuit: circuit.name, data: opts },
-        'Включен полив контура без указания ограничений');
+      log.info({ circuit: circuit.name, data: opts }, 'Irrigation started');
     }
   };
 
@@ -515,7 +514,7 @@ module.exports = function setup(options, imports, register) {
       }
 
       if (!circuit.isActive) {
-        const circuitActiveErr = new Error('Попытка выключения уже выключенного контура полива');
+        const circuitActiveErr = new Error('Unable to stop an already stopped circuit.');
         log.debug({ err: circuitActiveErr, circuit: circuit.name });
         return cb(circuitActiveErr);
       }

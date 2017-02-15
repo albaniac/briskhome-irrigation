@@ -91,17 +91,17 @@ module.exports = {
       "_id": "ff3d231d-eb87-455b-a1fd-72bd5c9059ba",
       "serial": "1234567890",
       "device": "d7fa0d0a-4fd9-462f-97b5-ba18fef1a7cb",
-      "kind": "distance",
+      "values": ["distance"],
     }, {
       "_id": "cab61681-3e29-45a0-928b-4db37f79b153",
       "serial": "2345678901",
       "device": "d7fa0d0a-4fd9-462f-97b5-ba18fef1a7cb",
-      "kind": "temperature",
+      "values": ["temperature"],
     }, {
       "_id": "7778c2c2-0529-444e-947b-ac07617428e1",
       "serial": "3456789012",
       "device": "d7fa0d0a-4fd9-462f-97b5-ba18fef1a7cb",
-      "kind": "moisture",
+      "values": ["moisture"],
     }],
     unregistered: [],
   },
@@ -149,7 +149,7 @@ module.exports = {
     _id: 'a3a3816f-1f6f-4a08-a40d-5a35b53439a2',
     name: 'Контроллер сенсоров 1',
     address: '127.0.0.4:8888',
-    services: { onewite: {} },
+    services: { onewire: {} },
   }],
 
 }

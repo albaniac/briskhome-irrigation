@@ -1,6 +1,6 @@
 {
   "name": "briskhome-irrigation",
-  "version": "0.3.0-rc.2",
+  "version": "0.3.0",
   "main": "index.js",
   "author": "Egor Zaitsev <ezaitsev@briskhome.com>",
   "private": true,
@@ -34,7 +34,7 @@
     "sinon": "^1.17.5"
   },
   "peerDependencies": {
-    "briskhome-core": "^0.3.0-alpha"
+    "@briskhome/core": "^0.3.0-alpha.1"
   },
   "scripts": {
     "lint": "node_modules/eslint/bin/eslint.js --quiet -c .eslintrc index.js",

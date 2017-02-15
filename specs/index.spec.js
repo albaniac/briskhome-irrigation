@@ -11,7 +11,6 @@
  * Юнит-тесты для компонента управления поливом.
  *
  * @author  Егор Зайцев <ezaitsev@briskhome.com>
- * @version 0.3.0-rc.2
  */
 
 
@@ -50,7 +49,7 @@ function Log() {
   this.info = logInfoStub;
   this.warn = logWarnStub;
   this.error = logErrorStub;
-  this.trace = logFatalStub;
+  this.fatal = logFatalStub;
 }
 
 /** Заглушка компонента планировщика задач */
@@ -100,7 +99,10 @@ describe('Irrigation', function () {
             (err, data) => callback(err, data)
           );
         },
-      }, (err) => done(err));
+      }, (err) => {
+        console.log(err);
+        return done(err);
+      });
     });
 
     afterEach(function (done) {
@@ -139,8 +141,14 @@ describe('Irrigation', function () {
     //     console.log(Object.getPrototypeOf(results.irrigation));
     //     const doneStub = sinon.stub();
     //     plannerDefineStub.yields({ attrs: { data: { circuit: 'test' } } }, doneStub);
-    //     const startStub = sinon.stub(Object.getPrototypeOf(results.irrigation), 'start').onFirstCall().yields(null);
-    //     const stopStub = sinon.stub(Object.getPrototypeOf(results.irrigation), 'stop').onFirstCall().yields(null);
+    //     const startStub = sinon
+    //      .stub(Object.getPrototypeOf(results.irrigation), 'start')
+    //      .onFirstCall()
+    //      .yields(null);
+    //     const stopStub = sinon
+    //      .stub(Object.getPrototypeOf(results.irrigation), 'stop')
+    //      .onFirstCall()
+    //      .yields(null);
     //     require.cache = {};
     //     require('../')(options, imports, (error2, returns) => {
     //       const irrigation = returns.irrigation;
@@ -1089,7 +1097,7 @@ describe('Irrigation', function () {
 describe('Bus', function () {
   describe('#irrigation:controllers', function () {
     require('../')(options, imports, (error, returns) => {
-      const irrigation = returns.irrigation;
+      const irrigation = returns.irrigation;                   // eslint-disable-line no-unused-vars
 
       beforeEach(function (done) {
         async.series({
@@ -1214,7 +1222,7 @@ describe('Bus', function () {
 
   describe('#irrigation:circuits', function () {
     require('../')(options, imports, (error, returns) => {
-      const irrigation = returns.irrigation;
+      const irrigation = returns.irrigation;                   // eslint-disable-line no-unused-vars
 
       beforeEach(function (done) {
         async.series({
